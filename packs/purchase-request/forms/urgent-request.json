@@ -1,0 +1,21 @@
+{
+  "key": "urgent-request",
+  "name": "คำขอจัดซื้อเร่งด่วน",
+  "schema": {
+    "fields": [
+      {
+        "key": "amount",
+        "label": "วงเงิน (บาท)",
+        "type": "money",
+        "required": true,
+        "min": 0
+      },
+      {
+        "key": "necessity",
+        "label": "เหตุผลความเร่งด่วน",
+        "type": "textarea",
+        "required": true
+      }
+    ]
+  }
+}

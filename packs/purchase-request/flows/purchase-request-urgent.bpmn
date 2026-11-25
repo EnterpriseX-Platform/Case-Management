@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:cm="http://enterprisex.io/schema/cm/1.0" id="defs_purchase_request_urgent" targetNamespace="http://enterprisex.io/cm/packs">
+  <process id="purchase_request_urgent" name="คำขอจัดซื้อเร่งด่วน" isExecutable="true">
+    <startEvent id="start" name="มีความจำเป็นเร่งด่วน"></startEvent>
+    <userTask id="justification" name="ระบุเหตุผลความเร่งด่วน" cm:role="requester" cm:form="urgent-request" cm:sla="P1D"></userTask>
+    <businessRuleTask id="limit_check" name="ตรวจวงเงินตามอำนาจอนุมัติ" cm:role="" cm:rule="approval-limit-check"></businessRuleTask>
+    <exclusiveGateway id="gw_limit" name="อยู่ในวงเงิน?" default="s_no"></exclusiveGateway>
+    <endEvent id="rejected" name="ไม่อนุมัติ"></endEvent>
+    <userTask id="approve" name="อนุมัติเร่งด่วน" cm:role="approver" cm:form="approval-form" cm:sla="PT8H"></userTask>
+    <userTask id="purchase" name="ดำเนินการจัดซื้อ" cm:role="procurement" cm:form="purchase-order" cm:sla="P3D"></userTask>
+    <endEvent id="end" name="ปิดคำขอ"></endEvent>
+    <sequenceFlow id="s1" sourceRef="start" targetRef="justification"/>
+    <sequenceFlow id="s2" sourceRef="justification" targetRef="limit_check"/>
+    <sequenceFlow id="s3" sourceRef="limit_check" targetRef="gw_limit"/>
+    <sequenceFlow id="s_yes" sourceRef="gw_limit" targetRef="approve"><conditionExpression>${withinLimit == true}</conditionExpression></sequenceFlow>
+    <sequenceFlow id="s_no" sourceRef="gw_limit" targetRef="rejected"/>
+    <sequenceFlow id="s4" sourceRef="approve" targetRef="purchase"/>
+    <sequenceFlow id="s5" sourceRef="purchase" targetRef="end"/>
+  </process>
+  <bpmndi:BPMNDiagram id="dia_purchase_request_urgent"><bpmndi:BPMNPlane id="plane_purchase_request_urgent" bpmnElement="purchase_request_urgent">
+    <bpmndi:BPMNShape id="start_di" bpmnElement="start"><dc:Bounds x="42" y="122" width="36" height="36"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="justification_di" bpmnElement="justification"><dc:Bounds x="170" y="100" width="120" height="80"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="limit_check_di" bpmnElement="limit_check"><dc:Bounds x="340" y="100" width="120" height="80"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="gw_limit_di" bpmnElement="gw_limit" isMarkerVisible="true"><dc:Bounds x="545" y="115" width="50" height="50"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="rejected_di" bpmnElement="rejected"><dc:Bounds x="552" y="322" width="36" height="36"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="approve_di" bpmnElement="approve"><dc:Bounds x="680" y="100" width="120" height="80"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="purchase_di" bpmnElement="purchase"><dc:Bounds x="850" y="100" width="120" height="80"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="end_di" bpmnElement="end"><dc:Bounds x="1062" y="122" width="36" height="36"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNEdge id="s1_di" bpmnElement="s1"><di:waypoint x="78" y="140"/><di:waypoint x="170" y="140"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="s2_di" bpmnElement="s2"><di:waypoint x="290" y="140"/><di:waypoint x="340" y="140"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="s3_di" bpmnElement="s3"><di:waypoint x="460" y="140"/><di:waypoint x="545" y="140"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="s_yes_di" bpmnElement="s_yes"><di:waypoint x="595" y="140"/><di:waypoint x="680" y="140"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="s_no_di" bpmnElement="s_no"><di:waypoint x="570" y="165"/><di:waypoint x="570" y="398"/><di:waypoint x="570" y="398"/><di:waypoint x="570" y="358"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="s4_di" bpmnElement="s4"><di:waypoint x="800" y="140"/><di:waypoint x="850" y="140"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="s5_di" bpmnElement="s5"><di:waypoint x="970" y="140"/><di:waypoint x="1062" y="140"/></bpmndi:BPMNEdge>
+  </bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
+</definitions>

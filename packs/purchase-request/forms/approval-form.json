@@ -1,0 +1,27 @@
+{
+  "key": "approval-form",
+  "name": "ผลการพิจารณา",
+  "schema": {
+    "fields": [
+      {
+        "key": "approvedAmount",
+        "label": "วงเงินที่อนุมัติ (บาท)",
+        "type": "money",
+        "required": true,
+        "min": 0
+      },
+      {
+        "key": "reason",
+        "label": "เหตุผลการปรับลด",
+        "type": "textarea",
+        "visibleIf": "approvedAmount < amount"
+      },
+      {
+        "key": "remark",
+        "label": "ความเห็นผู้พิจารณา",
+        "type": "textarea",
+        "required": true
+      }
+    ]
+  }
+}

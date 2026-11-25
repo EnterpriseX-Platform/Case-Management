@@ -1,0 +1,20 @@
+{
+  "key": "accounting-form",
+  "name": "บันทึกบัญชี",
+  "schema": {
+    "fields": [
+      {
+        "key": "voucher",
+        "label": "เลขที่เอกสารบัญชี",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "postDate",
+        "label": "วันที่บันทึก",
+        "type": "date",
+        "required": true
+      }
+    ]
+  }
+}

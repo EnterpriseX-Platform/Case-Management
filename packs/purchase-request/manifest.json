@@ -1,0 +1,26 @@
+{
+  "name": "Purchase Request Sample",
+  "version": "1.0.0",
+  "processes": [
+    {
+      "key": "purchase-request",
+      "name": "คำขอจัดซื้อ",
+      "category": "procurement",
+      "bpmn": "flows/purchase-request.bpmn",
+      "bindings": "bindings/purchase-request.json"
+    },
+    {
+      "key": "purchase-request-urgent",
+      "name": "คำขอจัดซื้อเร่งด่วน",
+      "category": "procurement",
+      "parentKey": "purchase-request",
+      "bpmn": "flows/purchase-request-urgent.bpmn"
+    }
+  ],
+  "forms": [
+    "forms/*.json"
+  ],
+  "screens": [
+    "screens/*.json"
+  ]
+}

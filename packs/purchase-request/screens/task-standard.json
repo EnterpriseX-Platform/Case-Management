@@ -1,0 +1,33 @@
+{
+  "key": "task-standard",
+  "name": "หน้าทำงานมาตรฐาน",
+  "kind": "task",
+  "layout": {
+    "rows": [
+      {
+        "cols": [
+          {
+            "width": 8,
+            "widget": "form"
+          },
+          {
+            "width": 4,
+            "widget": "caseInfo"
+          }
+        ]
+      },
+      {
+        "cols": [
+          {
+            "width": 6,
+            "widget": "attachments"
+          },
+          {
+            "width": 6,
+            "widget": "history"
+          }
+        ]
+      }
+    ]
+  }
+}

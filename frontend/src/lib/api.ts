@@ -1,0 +1,97 @@
+// API client. In development the caller identity is sent as X-User / X-Roles
+// (chosen on the sign-in page). In production an identity gateway (OIDC /
+// IAM proxy) sets these headers and the stored dev session is ignored.
+export type Session = { id: string; name: string; roles: string[] };
+
+const KEY = "cm.session";
+
+export function getSession(): Session | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(KEY);
+    return raw ? (JSON.parse(raw) as Session) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setSession(s: Session | null) {
+  try {
+    if (s) localStorage.setItem(KEY, JSON.stringify(s));
+    else localStorage.removeItem(KEY);
+  } catch {}
+  window.dispatchEvent(new Event("cm-session"));
+}
+
+export class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
+}
+
+async function call<T>(method: string, path: string, body?: unknown, raw?: BodyInit): Promise<T> {
+  const s = getSession();
+  const headers: Record<string, string> = {};
+  if (s) {
+    headers["X-User"] = s.id;
+    headers["X-User-Name"] = encodeURIComponent(s.name);
+    headers["X-Roles"] = s.roles.join(",");
+  }
+  let init: RequestInit = { method, headers };
+  if (raw) init.body = raw;
+  else if (body !== undefined) {
+    headers["Content-Type"] = "application/json";
+    init.body = JSON.stringify(body);
+  }
+  // Some WAFs block PUT/DELETE: tunnel them through POST.
+  if (method === "PUT" || method === "DELETE") {
+    headers["X-HTTP-Method-Override"] = method;
+    init.method = "POST";
+  }
+  const r = await fetch(path, init);
+  const text = await r.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!r.ok) throw new ApiError(r.status, data?.error ?? r.statusText);
+  return data as T;
+}
+
+export const api = {
+  get: <T,>(p: string) => call<T>("GET", p),
+  post: <T,>(p: string, b?: unknown) => call<T>("POST", p, b ?? {}),
+  put: <T,>(p: string, b: unknown) => call<T>("PUT", p, b),
+  upload: <T,>(p: string, f: FormData) => call<T>("POST", p, undefined, f),
+};
+
+// ---- types mirrored from the Go API ----
+export type ProcessDef = { id: string; key: string; name: string; description?: string; category?: string; parentKey?: string };
+export type Version = {
+  id: string; processKey: string; no: number; status: string; fiscalYear?: number; bpmn: string; note?: string;
+  createdBy: string; approvedBy?: string; publishedAt?: string; createdAt: string; clonedFrom?: string;
+};
+export type Binding = {
+  versionId?: string; nodeId: string; ui: "form" | "external" | "none"; formKey?: string; screenKey?: string;
+  url?: string; embed?: boolean; role?: string; sla?: string; enabled?: boolean; condition?: string;
+};
+export type Step = { nodeId: string; name: string; type: string; lane?: string; human: boolean; binding: Binding };
+export type Field = {
+  key: string; label: string; type: string; required?: boolean; min?: number; max?: number;
+  options?: { value: string; label: string }[]; visibleIf?: string; readOnly?: boolean; width?: number;
+  columns?: Field[]; source?: string; help?: string;
+};
+export type Form = { id?: string; key: string; name: string; version?: number; schema: { fields: Field[] } };
+export type Widget = { width: number; widget: string; url?: string; text?: string };
+export type Screen = { id?: string; key: string; name: string; kind: string; roles?: string[]; layout: { rows: { cols: Widget[] }[] } };
+export type Token = { id: string; node: string; wait?: string; scope?: string };
+export type History = { at: string; node: string; event: string; token: string; by?: string };
+export type Instance = { id: string; status: string; vars: Record<string, unknown>; tokens: Token[] | null; history: History[]; error?: string };
+export type Case = {
+  id: string; number: string; processKey: string; versionId: string; title: string; fiscalYear?: number;
+  parentId?: string; status: string; instance: Instance; createdBy: string; createdAt: string; updatedAt: string;
+};
+export type Work = {
+  id: string; instanceId: string; tokenId: string; node: string; name: string; role?: string; assignee?: string;
+  ui: "form" | "external" | "none"; formKey?: string; url?: string; embed?: boolean; screenKey?: string;
+  input?: Record<string, unknown>; sla?: string; dueAt?: string; caseId: string; caseNumber: string; caseTitle: string;
+  status: string; createdAt: string; completedBy?: string; completedAt?: string;
+};
+export type Audit = { at: string; actor: string; action: string; entity: string; ref: string; data?: Record<string, unknown> };

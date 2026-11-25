@@ -1,0 +1,20 @@
+[
+  {
+    "nodeId": "approve",
+    "ui": "form",
+    "formKey": "approval-form",
+    "screenKey": "task-approval"
+  },
+  {
+    "nodeId": "revise",
+    "ui": "form",
+    "formKey": "approval-form",
+    "screenKey": "task-approval"
+  },
+  {
+    "nodeId": "accounting",
+    "ui": "form",
+    "formKey": "accounting-form",
+    "screenKey": "task-standard"
+  }
+]

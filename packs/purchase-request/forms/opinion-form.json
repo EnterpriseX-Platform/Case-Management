@@ -1,0 +1,34 @@
+{
+  "key": "opinion-form",
+  "name": "ความเห็นหน่วยงาน",
+  "schema": {
+    "fields": [
+      {
+        "key": "reviewer",
+        "label": "หน่วยงาน",
+        "type": "display"
+      },
+      {
+        "key": "opinion",
+        "label": "ความเห็น",
+        "type": "radio",
+        "required": true,
+        "options": [
+          {
+            "value": "agree",
+            "label": "เห็นด้วย"
+          },
+          {
+            "value": "disagree",
+            "label": "ไม่เห็นด้วย"
+          }
+        ]
+      },
+      {
+        "key": "comment",
+        "label": "หมายเหตุ",
+        "type": "textarea"
+      }
+    ]
+  }
+}

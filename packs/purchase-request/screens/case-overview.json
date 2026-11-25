@@ -1,0 +1,37 @@
+{
+  "key": "case-overview",
+  "name": "ภาพรวมเรื่อง",
+  "kind": "case",
+  "layout": {
+    "rows": [
+      {
+        "cols": [
+          {
+            "width": 12,
+            "widget": "caseInfo"
+          }
+        ]
+      },
+      {
+        "cols": [
+          {
+            "width": 12,
+            "widget": "flow"
+          }
+        ]
+      },
+      {
+        "cols": [
+          {
+            "width": 6,
+            "widget": "subCases"
+          },
+          {
+            "width": 6,
+            "widget": "history"
+          }
+        ]
+      }
+    ]
+  }
+}

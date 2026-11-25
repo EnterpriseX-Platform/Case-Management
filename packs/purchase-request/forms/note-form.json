@@ -1,0 +1,14 @@
+{
+  "key": "note-form",
+  "name": "บันทึกการติดตาม",
+  "schema": {
+    "fields": [
+      {
+        "key": "note",
+        "label": "บันทึก",
+        "type": "textarea",
+        "required": true
+      }
+    ]
+  }
+}

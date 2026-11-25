@@ -1,0 +1,30 @@
+{
+  "key": "receive-form",
+  "name": "ตรวจรับพัสดุ",
+  "schema": {
+    "fields": [
+      {
+        "key": "result",
+        "label": "ผลการตรวจรับ",
+        "type": "radio",
+        "required": true,
+        "options": [
+          {
+            "value": "accepted",
+            "label": "ครบถ้วน"
+          },
+          {
+            "value": "partial",
+            "label": "ไม่ครบ"
+          }
+        ]
+      },
+      {
+        "key": "receiveDate",
+        "label": "วันที่ตรวจรับ",
+        "type": "date",
+        "required": true
+      }
+    ]
+  }
+}

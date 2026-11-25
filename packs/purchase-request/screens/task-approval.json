@@ -1,0 +1,40 @@
+{
+  "key": "task-approval",
+  "name": "หน้าพิจารณาอนุมัติ",
+  "kind": "task",
+  "roles": [
+    "approver"
+  ],
+  "layout": {
+    "rows": [
+      {
+        "cols": [
+          {
+            "width": 12,
+            "widget": "caseInfo"
+          }
+        ]
+      },
+      {
+        "cols": [
+          {
+            "width": 7,
+            "widget": "form"
+          },
+          {
+            "width": 5,
+            "widget": "relatedCases"
+          }
+        ]
+      },
+      {
+        "cols": [
+          {
+            "width": 12,
+            "widget": "history"
+          }
+        ]
+      }
+    ]
+  }
+}

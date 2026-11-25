@@ -1,0 +1,49 @@
+{
+  "key": "purchase-request",
+  "name": "คำขอจัดซื้อ",
+  "schema": {
+    "fields": [
+      {
+        "key": "amount",
+        "label": "วงเงิน (บาท)",
+        "type": "money",
+        "required": true,
+        "min": 0
+      },
+      {
+        "key": "reviewers",
+        "label": "หน่วยงานที่ต้องให้ความเห็น",
+        "type": "multiselect",
+        "required": true,
+        "source": "org"
+      },
+      {
+        "key": "items",
+        "label": "รายการ",
+        "type": "table",
+        "columns": [
+          {
+            "key": "item",
+            "label": "รายการ",
+            "type": "text"
+          },
+          {
+            "key": "qty",
+            "label": "จำนวน",
+            "type": "number"
+          },
+          {
+            "key": "price",
+            "label": "ราคา",
+            "type": "money"
+          }
+        ]
+      },
+      {
+        "key": "attachments",
+        "label": "เอกสารประกอบ",
+        "type": "file"
+      }
+    ]
+  }
+}

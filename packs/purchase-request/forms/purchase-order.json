@@ -1,0 +1,26 @@
+{
+  "key": "purchase-order",
+  "name": "ใบสั่งซื้อ",
+  "schema": {
+    "fields": [
+      {
+        "key": "poNumber",
+        "label": "เลขที่ใบสั่งซื้อ",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "vendor",
+        "label": "ผู้ขาย",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "poDate",
+        "label": "วันที่สั่งซื้อ",
+        "type": "date",
+        "required": true
+      }
+    ]
+  }
+}
