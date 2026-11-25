@@ -40,8 +40,15 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const canDesign = has(s, "cm:designer") || has(s, "cm:approver");
   return (
     <div className="shell">
+      <header className="hdr">
+        <Link href="/" className="hdr-name"><span>EnterpriseX</span>Case Management</Link>
+        <div className="hdr-sp" />
+        <div className="hdr-user">
+          <span>{s.name}</span>
+          <button onClick={() => { setSession(null); router.replace("/login"); }}>ออกจากระบบ</button>
+        </div>
+      </header>
       <aside className="side">
-        <div className="brand">Case Management</div>
         {groups.map((g) => {
           const items = g.items.filter((i) => !i.role || has(s, i.role) || (i.role === "cm:designer" && canDesign));
           if (!items.length) return null;
@@ -57,11 +64,6 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             </nav>
           );
         })}
-        <div className="side-user">
-          <div>{s.name}</div>
-          <div className="muted small">{s.roles.join(", ")}</div>
-          <button className="link" onClick={() => { setSession(null); router.replace("/login"); }}>ออกจากระบบ</button>
-        </div>
       </aside>
       <main className="main">{children}</main>
     </div>
