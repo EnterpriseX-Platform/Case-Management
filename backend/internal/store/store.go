@@ -210,6 +210,7 @@ type Store interface {
 	PutTimer(ctx context.Context, t *engine.Timer) error
 	DeleteTimersByToken(ctx context.Context, instanceID, tokenID string) error
 	DueTimers(ctx context.Context, now time.Time, limit int) ([]*engine.Timer, error)
+	ListTimers(ctx context.Context, instanceID string) ([]*engine.Timer, error)
 	DeleteTimer(ctx context.Context, id string) error
 
 	AddAudit(ctx context.Context, a *Audit) error

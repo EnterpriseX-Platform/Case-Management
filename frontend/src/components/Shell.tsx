@@ -27,7 +27,8 @@ export const WORKSPACES: WS[] = [
     key: "operations", name: "Operations", who: "Follow up and manage the work", home: "/supervisor", roles: ["cm:supervisor"],
     match: (p) => /^\/(supervisor|ops|incidents)(\/|$)/.test(p),
     items: [
-      { href: "/supervisor", label: "Overview" }, { href: "/ops/queues", label: "Work queues" },
+      { href: "/supervisor", label: "Overview" }, { href: "/ops/monitor", label: "Flow monitor" }, { href: "/ops/cases", label: "Cases" },
+      { href: "/ops/queues", label: "Work queues" },
       { href: "/incidents", label: "Incidents", count: "incidents" },
     ],
   },

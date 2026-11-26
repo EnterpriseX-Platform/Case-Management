@@ -299,6 +299,19 @@ func (m *Memory) DueTimers(_ context.Context, now time.Time, limit int) ([]*engi
 	}
 	return out, nil
 }
+func (m *Memory) ListTimers(_ context.Context, iid string) ([]*engine.Timer, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []*engine.Timer
+	for _, t := range m.timers {
+		if t.InstanceID == iid {
+			out = append(out, cp(t))
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].DueAt.Before(out[j].DueAt) })
+	return out, nil
+}
+
 func (m *Memory) DeleteTimer(_ context.Context, id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

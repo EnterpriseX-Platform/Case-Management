@@ -256,6 +256,10 @@ func (p *Postgres) DueTimers(ctx context.Context, now time.Time, limit int) ([]*
 	return many[engine.Timer](ctx, p.q(ctx), `SELECT data FROM cm_timer WHERE tenant_id=$1 AND due_at<=$2
 		ORDER BY due_at LIMIT $3 FOR UPDATE SKIP LOCKED`, p.Tenant, now, limit)
 }
+func (p *Postgres) ListTimers(ctx context.Context, iid string) ([]*engine.Timer, error) {
+	return many[engine.Timer](ctx, p.q(ctx), `SELECT data FROM cm_timer WHERE tenant_id=$1 AND instance_id=$2 ORDER BY due_at`, p.Tenant, iid)
+}
+
 func (p *Postgres) DeleteTimer(ctx context.Context, id string) error {
 	return p.exec(ctx, `DELETE FROM cm_timer WHERE tenant_id=$1 AND id=$2`, p.Tenant, id)
 }

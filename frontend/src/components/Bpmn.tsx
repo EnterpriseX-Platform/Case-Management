@@ -68,3 +68,37 @@ export function Viewer({ xml, active = [], done = [] }: { xml: string; active?: 
   }, [xml, active.join(), done.join()]);
   return <div className="bpmn bpmn-view" ref={el} />;
 }
+
+/** Read-only flow with figures overlaid on steps and a heat shade by load. */
+export function MonitorViewer({ xml, labels, heat, selected, onSelect }: {
+  xml: string; labels: Record<string, string>; heat: Record<string, 0 | 1 | 2 | 3>; selected?: string; onSelect?: (id: string) => void;
+}) {
+  const el = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let v: any, dead = false;
+    (async () => {
+      const V = (await import("bpmn-js/lib/NavigatedViewer")).default;
+      if (dead || !el.current) return;
+      v = new V({ container: el.current });
+      await v.importXML(xml);
+      const c = v.get("canvas"), reg = v.get("elementRegistry"), ov = v.get("overlays");
+      c.zoom("fit-viewport");
+      for (const [id, lv] of Object.entries(heat)) if (lv && reg.get(id)) c.addMarker(id, `m-heat-${lv}`);
+      if (selected && reg.get(selected)) c.addMarker(selected, "m-sel");
+      for (const [id, text] of Object.entries(labels)) {
+        if (!text || !reg.get(id)) continue;
+        const div = document.createElement("div");
+        div.className = "ov-label" + (heat[id] === 3 ? " hot" : "");
+        div.textContent = text;
+        ov.add(id, { position: { bottom: -6, left: 0 }, html: div });
+      }
+      v.get("eventBus").on("element.click", (e: any) => {
+        const bo = e.element?.businessObject;
+        if (bo && e.element.type !== "bpmn:Process" && !e.element.waypoints) onSelect?.(bo.id);
+      });
+    })();
+    return () => { dead = true; v?.destroy(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [xml, JSON.stringify(labels), JSON.stringify(heat), selected]);
+  return <div className="bpmn bpmn-monitor" ref={el} />;
+}

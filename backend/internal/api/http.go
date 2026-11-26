@@ -595,6 +595,47 @@ func (s *Server) Handler() http.Handler {
 		n, err := s.S.RetryAll(r.Context(), actor(r))
 		return map[string]any{"retried": n}, err
 	})
+	h("GET /api/monitor/overview", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		days, _ := strconv.Atoi(r.URL.Query().Get("days"))
+		return s.S.MonitorOverview(r.Context(), actor(r), r.URL.Query().Get("process"), days)
+	})
+	h("GET /api/monitor/process/{version}", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		days, _ := strconv.Atoi(r.URL.Query().Get("days"))
+		return s.S.ProcessStatistics(r.Context(), actor(r), r.PathValue("version"), days)
+	})
+	h("GET /api/monitor/cases", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		q := r.URL.Query()
+		lim, _ := strconv.Atoi(q.Get("limit"))
+		if lim <= 0 {
+			lim = 500
+		}
+		rows, err := s.S.Explore(r.Context(), actor(r), app.ExplorerFilter{Process: q.Get("process"), Version: q.Get("version"), Node: q.Get("node"),
+			Stage: q.Get("stage"), Status: q.Get("status"), Assignee: q.Get("assignee"), SLA: q.Get("sla"), Q: q.Get("q"), Limit: lim})
+		if rows == nil {
+			rows = []app.ExplorerRow{}
+		}
+		return rows, err
+	})
+	h("GET /api/cases/{id}/inspect", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		return s.S.Inspect(r.Context(), actor(r), r.PathValue("id"))
+	})
+	h("POST /api/cases/{id}/vars", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		var in struct {
+			Vars   map[string]any `json:"vars"`
+			Reason string         `json:"reason"`
+		}
+		if err := decode(r, &in); err != nil {
+			return nil, err
+		}
+		return s.S.SetVars(r.Context(), actor(r), r.PathValue("id"), in.Vars, in.Reason)
+	})
+	h("POST /api/cases/{id}/skip", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		var in struct{ Token, Reason string }
+		if err := decode(r, &in); err != nil {
+			return nil, err
+		}
+		return s.S.Skip(r.Context(), actor(r), r.PathValue("id"), in.Token, in.Reason)
+	})
 	h("GET /api/jobs", func(w http.ResponseWriter, r *http.Request) (any, error) {
 		if !actor(r).Has(app.RoleSupervisor) {
 			return nil, app.ErrForbidden
