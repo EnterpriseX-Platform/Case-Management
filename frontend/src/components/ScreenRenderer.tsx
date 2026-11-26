@@ -6,6 +6,7 @@ import { Case, Screen, Widget, Audit, Version } from "@/lib/api";
 import { dt, money, th } from "@/lib/format";
 import { Viewer } from "./Bpmn";
 import { Status } from "./ui";
+import { KPIs, MyCases, MyWork, NewCase } from "./PortalWidgets";
 
 export type Ctx = {
   form?: React.ReactNode;          // the rendered task form (or external screen)
@@ -27,6 +28,7 @@ export const WIDGETS: { value: string; label: string }[] = [
   { value: "subCases", label: t("Sub-cases") }, { value: "relatedCases", label: t("Related cases") },
   { value: "attachments", label: t("Attachments") }, { value: "comments", label: t("Comments") },
   { value: "iframe", label: "External page (iframe)" }, { value: "markdown", label: "Text" },
+  { value: "worklist", label: "My work" }, { value: "myCases", label: "My cases" }, { value: "newCase", label: "New case" }, { value: "kpi", label: "Work figures" },
 ];
 
 export default function ScreenRenderer({ screen, ctx }: { screen?: Screen; ctx: Ctx }) {
@@ -116,6 +118,14 @@ function W({ w, ctx }: { w: Widget; ctx: Ctx }) {
       return w.url ? <iframe className="ext" src={w.url} /> : null;
     case "markdown":
       return <div className="md">{w.text}</div>;
+    case "worklist":
+      return <MyWork />;
+    case "myCases":
+      return <MyCases />;
+    case "newCase":
+      return <NewCase />;
+    case "kpi":
+      return <KPIs />;
     default:
       return null;
   }

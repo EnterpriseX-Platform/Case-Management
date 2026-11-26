@@ -19,7 +19,9 @@ export default function FormRenderer({ fields, data, onChange, readOnly, errors 
   const set = (k: string, v: any) => onChange({ ...data, [k]: v });
   return (
     <div className="form-grid">
-      {fields.filter((f) => visible(f.visibleIf, data)).map((f) => (
+      {fields.filter((f) => visible(f.visibleIf, data)).map((f) => f.type === "section" ? (
+        <h4 key={f.key} className="fsection" style={{ gridColumn: "span 12" }}>{f.label}</h4>
+      ) : (
         <div key={f.key} className="fcell" style={{ gridColumn: `span ${f.width || 12}` }}>
           <div className="fld-l">{f.label}{f.required && f.type !== "display" && <span className="req"> *</span>}</div>
           <Input f={f} v={data[f.key]} set={(v) => set(f.key, v)} ro={readOnly || f.readOnly} />

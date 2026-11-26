@@ -332,5 +332,11 @@
  "Start test": "เริ่มทดสอบ",
  "Case data": "ข้อมูลเรื่อง",
  "Tokens": "ตำแหน่งใน flow",
- "Previous runs": "การทดสอบก่อนหน้า"
+ "Previous runs": "การทดสอบก่อนหน้า",
+ "Home": "หน้าแรก",
+ "My cases": "เรื่องของฉัน",
+ "Due today": "ครบกำหนดวันนี้",
+ "Work figures": "ตัวเลขงาน",
+ "Section heading": "หัวข้อส่วน",
+ "Persona home": "หน้าแรกตามบทบาท"
 }

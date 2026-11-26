@@ -1,6 +1,7 @@
 package api
 
 import (
+	_ "embed"
 	"fmt"
 	"net/http"
 	"runtime"
@@ -36,3 +37,6 @@ func OpsHandler() http.Handler {
 	m.HandleFunc("GET /metrics", metrics)
 	return m
 }
+
+//go:embed openapi.yaml
+var openapiSpec []byte

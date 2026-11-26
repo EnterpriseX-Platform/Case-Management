@@ -12,7 +12,7 @@ export default function Home() {
     if (has(s, "cm:admin")) r.replace("/admin");
     else if (has(s, "cm:supervisor")) r.replace("/supervisor");
     else if (has(s, "cm:designer") || has(s, "cm:approver")) r.replace("/designer");
-    else r.replace("/work");
+    else r.replace("/home");
   }, [s, r]);
   return null;
 }

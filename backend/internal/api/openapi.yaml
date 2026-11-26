@@ -1,0 +1,226 @@
+openapi: 3.0.3
+info:
+  title: Case Management API
+  version: "1.0"
+  description: |
+    REST API of the case management platform. Authenticate with an OIDC bearer
+    token (`Authorization: Bearer …`). In development the server may accept
+    `X-User` / `X-Roles` headers instead. PUT requests may be sent as POST with
+    `X-HTTP-Method-Override: PUT`. All ids are CUIDs.
+servers:
+  - url: /
+security:
+  - bearer: []
+tags:
+  - name: Cases
+  - name: Work
+  - name: Events
+  - name: Design
+  - name: Operations
+paths:
+  /api/me:
+    get: { tags: [Cases], summary: Current user, responses: { "200": { description: Actor, content: { application/json: { schema: { $ref: "#/components/schemas/Actor" } } } } } }
+  /api/processes:
+    get: { tags: [Design], summary: List case types, responses: { "200": { description: Case types, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/ProcessDef" } } } } } } }
+    post:
+      tags: [Design]
+      summary: Create a case type
+      requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/ProcessDef" } } } }
+      responses: { "200": { description: Created } }
+  /api/processes/{key}/versions:
+    parameters: [{ $ref: "#/components/parameters/key" }]
+    get: { tags: [Design], summary: List versions, responses: { "200": { description: Versions, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Version" } } } } } } }
+    post:
+      tags: [Design]
+      summary: Create a draft version from BPMN 2.0 XML
+      requestBody: { content: { application/json: { schema: { type: object, properties: { bpmn: { type: string }, fiscalYear: { type: integer }, note: { type: string } } } } } }
+      responses: { "200": { description: "{version, warnings}" } }
+  /api/processes/{key}/export:
+    parameters: [{ $ref: "#/components/parameters/key" }, { name: version, in: query, schema: { type: string } }]
+    get: { tags: [Design], summary: Export an app version as a solution pack (.cmpack zip), responses: { "200": { description: Zip file, content: { application/zip: {} } } } }
+  /api/versions/{id}:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    get: { tags: [Design], summary: Get a version, responses: { "200": { description: Version, content: { application/json: { schema: { $ref: "#/components/schemas/Version" } } } } } }
+    put: { tags: [Design], summary: Update a draft (BPMN, fiscal year, note), responses: { "200": { description: Updated } } }
+  /api/versions/{id}/{action}:
+    parameters: [{ $ref: "#/components/parameters/id" }, { name: action, in: path, required: true, schema: { type: string, enum: [submit, reject, approve, publish, deprecate, archive, clone] } }]
+    post: { tags: [Design], summary: "Life cycle transition (maker-checker on approve) or clone", responses: { "200": { description: Version } } }
+  /api/versions/{id}/model:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    get: { tags: [Design], summary: Case model (stages, data, rules, actions, decisions, connectors), responses: { "200": { description: Model, content: { application/json: { schema: { $ref: "#/components/schemas/CaseModel" } } } } } }
+    put: { tags: [Design], summary: Save the case model of a draft, requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/CaseModel" } } } }, responses: { "200": { description: Model } } }
+  /api/versions/{id}/lifecycle:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    get: { tags: [Design], summary: Business lifecycle, responses: { "200": { description: Lifecycle } } }
+    put: { tags: [Design], summary: Save the lifecycle and regenerate the flow, responses: { "200": { description: "{version, warnings}" } } }
+  /api/versions/{id}/steps:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    get: { tags: [Design], summary: Steps with their screen bindings, responses: { "200": { description: Steps } } }
+  /api/versions/{id}/bindings:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    put: { tags: [Design], summary: Map steps to screens (form / external / none), responses: { "200": { description: Steps } } }
+  /api/versions/{id}/diff:
+    parameters: [{ $ref: "#/components/parameters/id" }, { name: to, in: query, required: true, schema: { type: string } }]
+    get: { tags: [Design], summary: Compare two versions, responses: { "200": { description: Diff } } }
+  /api/versions/{id}/decisions/{key}/test:
+    parameters: [{ $ref: "#/components/parameters/id" }, { $ref: "#/components/parameters/key" }]
+    post: { tags: [Design], summary: Evaluate a decision table with sample data, responses: { "200": { description: "{output, rows}" } } }
+  /api/connectors/test:
+    post: { tags: [Design], summary: Try a REST connector with sample data, responses: { "200": { description: Request, response and mapped output } } }
+  /api/validate/bpmn:
+    post: { tags: [Design], summary: Validate BPMN XML, requestBody: { content: { application/xml: {} } }, responses: { "200": { description: "{process, nodes, warnings}" } } }
+  /api/forms:
+    get: { tags: [Design], summary: List forms, responses: { "200": { description: Forms } } }
+  /api/forms/{key}:
+    parameters: [{ $ref: "#/components/parameters/key" }]
+    get: { tags: [Design], summary: Get a form, responses: { "200": { description: Form } } }
+    put: { tags: [Design], summary: Save a form (new revision), responses: { "200": { description: Form } } }
+  /api/screens:
+    get: { tags: [Design], summary: List screens (task, case, portal), responses: { "200": { description: Screens } } }
+  /api/screens/{key}:
+    parameters: [{ $ref: "#/components/parameters/key" }]
+    get: { tags: [Design], summary: Get a screen, responses: { "200": { description: Screen } } }
+    put: { tags: [Design], summary: Save a screen, responses: { "200": { description: Screen } } }
+  /api/cases:
+    get:
+      tags: [Cases]
+      summary: List cases
+      parameters:
+        - { name: process, in: query, schema: { type: string } }
+        - { name: version, in: query, schema: { type: string } }
+        - { name: fiscalYear, in: query, schema: { type: integer } }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: mine, in: query, schema: { type: string, enum: ["1"] } }
+        - { name: test, in: query, schema: { type: string, enum: ["1"] }, description: Studio test runs only }
+      responses: { "200": { description: Cases, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Case" } } } } } }
+    post:
+      tags: [Cases]
+      summary: Start a case
+      requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/StartInput" } } } }
+      responses: { "200": { description: Case, content: { application/json: { schema: { $ref: "#/components/schemas/Case" } } } } }
+  /api/cases/{id}:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    get: { tags: [Cases], summary: "Case with work, stages, actions, related cases, events and audit", responses: { "200": { description: Case view } } }
+  /api/cases/{id}/actions/{key}:
+    parameters: [{ $ref: "#/components/parameters/id" }, { $ref: "#/components/parameters/key" }]
+    post: { tags: [Cases], summary: Run a case action (update data, go to stage, open child case), responses: { "200": { description: Case } } }
+  /api/cases/{id}/related:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    post: { tags: [Cases], summary: "Link / unlink a related case ({other, link})", responses: { "200": { description: OK } } }
+  /api/cases/{id}/move:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    post: { tags: [Operations], summary: "Move a token to another step ({token, to, reason}) — supervisor", responses: { "200": { description: Case } } }
+  /api/cases/{id}/cancel:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    post: { tags: [Operations], summary: Cancel a case — supervisor, responses: { "200": { description: Case } } }
+  /api/cases/{id}/events:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    get: { tags: [Cases], summary: Event log of a case, responses: { "200": { description: Events } } }
+  /api/work:
+    get:
+      tags: [Work]
+      summary: My work (assigned to me or open in my role queues, most urgent first)
+      parameters: [{ name: all, in: query, schema: { type: string, enum: ["1"] }, description: All queues (supervisor) }]
+      responses: { "200": { description: Work items, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Work" } } } } } }
+  /api/work/{id}:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    get: { tags: [Work], summary: "Work item with its form, screen, case data and (external screens) callback URL", responses: { "200": { description: Work view } } }
+  /api/work/{id}/claim:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    post: { tags: [Work], summary: Claim a work item, responses: { "200": { description: Work } } }
+  /api/work/{id}/complete:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    post: { tags: [Work], summary: Complete a work item with form data, requestBody: { content: { application/json: { schema: { type: object, additionalProperties: true } } } }, responses: { "200": { description: Case } } }
+  /api/work/{id}/reassign:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    post: { tags: [Work], summary: "Reassign ({assignee, role}) — supervisor", responses: { "200": { description: Work } } }
+  /api/callback/{id}:
+    parameters: [{ $ref: "#/components/parameters/id" }, { name: token, in: query, required: true, schema: { type: string } }]
+    post: { tags: [Work], summary: External screen completes a step (signed token, no user session), security: [], responses: { "200": { description: "{caseId, status}" } } }
+  /api/messages:
+    post: { tags: [Events], summary: "Correlate a message ({name, caseId | correlationKey, vars})", responses: { "200": { description: "{matched}" } } }
+  /api/signals:
+    post: { tags: [Events], summary: "Broadcast a signal ({name, vars})", responses: { "200": { description: OK } } }
+  /api/incidents:
+    get: { tags: [Operations], summary: Incidents (status=open|resolved), responses: { "200": { description: Incidents } } }
+  /api/incidents/{id}/{action}:
+    parameters: [{ $ref: "#/components/parameters/id" }, { name: action, in: path, required: true, schema: { type: string, enum: [retry, move, cancel] } }]
+    post: { tags: [Operations], summary: "Resolve an incident ({to, vars, note})", responses: { "200": { description: Incident } } }
+  /api/jobs:
+    get: { tags: [Operations], summary: Pending jobs, responses: { "200": { description: Jobs } } }
+  /api/dashboard:
+    get: { tags: [Operations], summary: Supervisor dashboard figures, responses: { "200": { description: Figures } } }
+  /api/migrations:
+    post: { tags: [Operations], summary: "Move running cases between versions ({from, to, mapping, dryRun})", responses: { "200": { description: Result } } }
+  /api/imports:
+    get: { tags: [Operations], summary: Import history, responses: { "200": { description: Jobs } } }
+    post: { tags: [Operations], summary: "Import BPMN / pack / form / CSV / XLSX (multipart: file, kind, processKey, fiscalYear, commit)", responses: { "200": { description: Preview or import job } } }
+  /api/audit:
+    get: { tags: [Operations], summary: Audit log (admin), responses: { "200": { description: Entries } } }
+  /metrics:
+    get: { tags: [Operations], summary: Prometheus metrics, security: [], responses: { "200": { description: Text exposition } } }
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    id: { name: id, in: path, required: true, schema: { type: string } }
+    key: { name: key, in: path, required: true, schema: { type: string } }
+  schemas:
+    Actor: { type: object, properties: { id: { type: string }, name: { type: string }, roles: { type: array, items: { type: string } } } }
+    ProcessDef: { type: object, properties: { key: { type: string }, name: { type: string }, category: { type: string }, parentKey: { type: string } }, required: [key, name] }
+    Version:
+      type: object
+      properties:
+        id: { type: string }
+        processKey: { type: string }
+        no: { type: integer }
+        status: { type: string, enum: [draft, in_review, approved, published, deprecated, archived] }
+        fiscalYear: { type: integer }
+        bpmn: { type: string }
+        model: { $ref: "#/components/schemas/CaseModel" }
+    CaseModel:
+      type: object
+      properties:
+        stages: { type: array, items: { type: object, properties: { key: { type: string }, name: { type: string }, kind: { type: string, enum: [primary, alternate, resolution] }, steps: { type: array, items: { type: string } }, entry: { type: string }, sla: { type: string } } } }
+        data: { type: array, items: { type: object, properties: { key: { type: string }, label: { type: string }, type: { type: string }, required: { type: boolean }, calc: { type: string } } } }
+        rules: { type: array, items: { type: object, properties: { when: { type: string }, check: { type: string }, message: { type: string } } } }
+        actions: { type: array, items: { type: object, properties: { key: { type: string }, label: { type: string }, kind: { type: string, enum: [update, stage, child] }, target: { type: string } } } }
+        decisions: { type: array, items: { type: object } }
+        connectors: { type: array, items: { type: object } }
+        lifecycle: { type: object }
+    StartInput:
+      type: object
+      properties:
+        processKey: { type: string }
+        fiscalYear: { type: integer }
+        versionId: { type: string, description: Run a specific version (designers) }
+        title: { type: string }
+        vars: { type: object, additionalProperties: true }
+        parentId: { type: string }
+        test: { type: boolean, description: Studio test run }
+      required: [processKey]
+    Case:
+      type: object
+      properties:
+        id: { type: string }
+        number: { type: string }
+        processKey: { type: string }
+        versionId: { type: string }
+        title: { type: string }
+        status: { type: string, enum: [running, completed, failed, cancelled] }
+        stage: { type: string }
+        instance: { type: object, properties: { vars: { type: object, additionalProperties: true }, tokens: { type: array, items: { type: object } } } }
+    Work:
+      type: object
+      properties:
+        id: { type: string }
+        caseId: { type: string }
+        caseNumber: { type: string }
+        node: { type: string }
+        name: { type: string }
+        role: { type: string }
+        assignee: { type: string }
+        ui: { type: string, enum: [form, external, none] }
+        formKey: { type: string }
+        dueAt: { type: string, format: date-time }
+        status: { type: string, enum: [open, claimed, done, cancelled] }

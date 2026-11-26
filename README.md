@@ -10,3 +10,10 @@ Low-code case management with a BPMN 2.0 engine. Backend in Go, frontend in Next
 cd backend && SEED_PACK=../packs/purchase-request.cmpack go run ./cmd/server
 cd frontend && npm install && npm run dev
 ```
+
+## API and SDKs
+
+- OpenAPI 3 spec: `GET /api/openapi.yaml` (source: `backend/internal/api/openapi.yaml`)
+- Go SDK: `github.com/EnterpriseX-Platform/Case-Management/backend/pkg/client`
+- TypeScript SDK: `sdk/typescript`
+- CLI: `go run ./backend/cmd/cm pull <case-type>` / `push <dir> --yes`

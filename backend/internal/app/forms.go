@@ -22,7 +22,7 @@ import (
 // checkbox, radio, file, table (rows of sub-fields), user, org, display.
 var fieldTypes = map[string]bool{"text": true, "textarea": true, "number": true, "money": true, "date": true,
 	"select": true, "multiselect": true, "checkbox": true, "radio": true, "file": true, "table": true,
-	"user": true, "org": true, "display": true}
+	"user": true, "org": true, "display": true, "section": true}
 
 var keyRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
@@ -149,7 +149,7 @@ func (s *Service) PutForm(ctx context.Context, by Actor, f store.Form) (*store.F
 // comments, iframe(url), markdown(text), kpi(metric), worklist, chart.
 var widgets = map[string]bool{"form": true, "caseInfo": true, "history": true, "attachments": true,
 	"relatedCases": true, "subCases": true, "comments": true, "iframe": true, "markdown": true,
-	"kpi": true, "worklist": true, "chart": true, "flow": true}
+	"kpi": true, "worklist": true, "chart": true, "flow": true, "myCases": true, "newCase": true}
 
 func (s *Service) PutScreen(ctx context.Context, by Actor, sc store.Screen) (*store.Screen, error) {
 	if !by.Has(RoleDesigner) {

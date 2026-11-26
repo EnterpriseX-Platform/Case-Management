@@ -132,10 +132,7 @@ func (s *Server) Handler() http.Handler {
 		if err != nil {
 			return nil, err
 		}
-		if v.Model == nil {
-			return &store.CaseModel{Stages: []store.Stage{}, Data: []store.DataField{}, Actions: []store.CaseAction{}}, nil
-		}
-		return v.Model, nil
+		return v.Model.Normalized(), nil
 	})
 	h("PUT /api/versions/{id}/model", func(w http.ResponseWriter, r *http.Request) (any, error) {
 		var m store.CaseModel
@@ -146,7 +143,7 @@ func (s *Server) Handler() http.Handler {
 		if err != nil {
 			return nil, err
 		}
-		return v.Model, nil
+		return v.Model.Normalized(), nil
 	})
 	h("POST /api/cases/{id}/actions/{key}", func(w http.ResponseWriter, r *http.Request) (any, error) {
 		var in map[string]any
@@ -474,6 +471,10 @@ func (s *Server) Handler() http.Handler {
 
 	m.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok")) })
 	m.HandleFunc("GET /metrics", metrics)
+	m.HandleFunc("GET /api/openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/yaml")
+		w.Write(openapiSpec)
+	})
 
 	// operations: incidents, jobs, event log
 	h("GET /api/incidents", func(w http.ResponseWriter, r *http.Request) (any, error) {
@@ -535,7 +536,7 @@ func (s *Server) middleware(m *http.ServeMux, callback http.HandlerFunc) http.Ha
 			callback(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/api/") {
+		if strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != "/api/openapi.yaml" {
 			a, err := s.Auth(r)
 			if err != nil {
 				writeErr(w, err)

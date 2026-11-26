@@ -10,7 +10,7 @@ import { Err, Field, Page } from "@/components/ui";
 export default function NewCase() {
   const r = useRouter();
   const { data: procs } = useLoad(() => api.get<ProcessDef[]>("/api/processes"));
-  const [key, setKey] = useState("");
+  const [key, setKey] = useState(() => (typeof window !== "undefined" ? new URLSearchParams(location.search).get("type") ?? "" : ""));
   const { data: vers } = useLoad(() => (key ? api.get<Version[]>(`/api/processes/${key}/versions`) : Promise.resolve([])), [key]);
   const years = (vers ?? []).filter((v) => v.status === "published").map((v) => v.fiscalYear!).sort();
   const [fy, setFy] = useState("");

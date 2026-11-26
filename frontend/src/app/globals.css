@@ -347,7 +347,6 @@ ul { margin: 0; padding-left: 20px; }
 .timeline .tl-stage { font-weight: 600; }
 .chip { display: inline-block; padding: 0 8px; height: 24px; line-height: 24px; font-size: 12px; background: var(--cds-layer-selected); margin: 2px 4px 2px 0; }
 .btn.danger-fill { background: var(--cds-support-error) !important; color: #fff !important; border-color: transparent !important; }
-.card { overflow-x: auto; }
 
 /* ---------- studio ---------- */
 .studio { margin: -32px; }
@@ -387,3 +386,10 @@ ul { margin: 0; padding-left: 20px; }
 .grid-sheet tr.hit td { background: #defbe6 !important; }
 pre.code { background: var(--cds-layer-02); padding: 12px; font-family: var(--mono); font-size: 12px; overflow: auto; max-height: 320px; margin: 0; }
 .row-url { display: grid; grid-template-columns: 128px 1fr; gap: 1px; }
+.fitem.drop-before { box-shadow: inset 0 2px 0 var(--cds-focus); }
+.drop-end { height: 24px; }
+.drop-end.on { box-shadow: inset 0 2px 0 var(--cds-focus); }
+.fsection { font-size: 16px; font-weight: 600; margin: 16px 0 0; padding-bottom: 8px; border-bottom: 1px solid var(--cds-border-subtle); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1px; background: var(--cds-border-subtle); border: 1px solid var(--cds-border-subtle); }
+.tile { background: var(--cds-layer-01); padding: 16px; min-height: 80px; color: var(--cds-text-primary); }
+.tile:hover { background: var(--cds-layer-hover); text-decoration: none; }

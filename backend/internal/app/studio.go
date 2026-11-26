@@ -149,6 +149,9 @@ func CallConnector(ctx context.Context, c *store.Connector, vars map[string]any,
 	if err != nil {
 		return res, err
 	}
+	if allow := os.Getenv("CM_CONNECTOR_ALLOW"); allow != "" && !hostAllowed(req.URL.Hostname(), allow) {
+		return res, fmt.Errorf("connector %s: host %s is not in CM_CONNECTOR_ALLOW", c.Name, req.URL.Hostname())
+	}
 	req.Header.Set("Content-Type", "application/json")
 	if idemKey != "" {
 		req.Header.Set("Idempotency-Key", idemKey)
@@ -281,4 +284,16 @@ func (s *Service) TestConnector(ctx context.Context, by Actor, c *store.Connecto
 		r.Error = err.Error()
 	}
 	return r, nil
+}
+
+// hostAllowed checks a comma-separated allow list (exact host or ".suffix").
+func hostAllowed(host, allow string) bool {
+	for _, a := range strings.Split(allow, ",") {
+		a = strings.TrimSpace(strings.ToLower(a))
+		h := strings.ToLower(host)
+		if a != "" && (h == a || (strings.HasPrefix(a, ".") && strings.HasSuffix(h, a))) {
+			return true
+		}
+	}
+	return false
 }

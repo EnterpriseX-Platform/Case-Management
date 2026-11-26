@@ -13,6 +13,8 @@
 //	OIDC_AUDIENCE  expected audience / client id (optional)
 //	OIDC_ROLES_CLAIM  claim holding roles, dotted (default "roles"; Keycloak: realm_access.roles)
 //	OIDC_ROLE_PREFIX  only use roles with this prefix (prefix removed)
+//	CM_CONNECTOR_ALLOW  hosts studio connectors may call, e.g. "erp.example.com,.internal.example" (empty = any)
+//	CM_SECRET_<NAME>    secrets referenced by connectors as ${secret:NAME}
 package main
 
 import (

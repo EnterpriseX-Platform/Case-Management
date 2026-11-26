@@ -147,3 +147,36 @@ type Connector struct {
 	Timeout  int               `json:"timeout,omitempty"`  // seconds
 	Retries  int               `json:"retries,omitempty"`
 }
+
+// Normalized returns a copy whose lists are never nil, so JSON clients
+// always receive [] instead of null.
+func (m *CaseModel) Normalized() *CaseModel {
+	if m == nil {
+		m = &CaseModel{}
+	}
+	c := *m
+	if c.Stages == nil {
+		c.Stages = []Stage{}
+	}
+	if c.Data == nil {
+		c.Data = []DataField{}
+	}
+	if c.Rules == nil {
+		c.Rules = []DataRule{}
+	}
+	if c.Actions == nil {
+		c.Actions = []CaseAction{}
+	}
+	if c.Decisions == nil {
+		c.Decisions = []DecisionTable{}
+	}
+	if c.Connectors == nil {
+		c.Connectors = []Connector{}
+	}
+	for i := range c.Stages {
+		if c.Stages[i].Steps == nil {
+			c.Stages[i].Steps = []string{}
+		}
+	}
+	return &c
+}

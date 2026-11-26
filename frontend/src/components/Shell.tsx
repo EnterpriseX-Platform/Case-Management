@@ -9,6 +9,7 @@ import { has, useSession } from "@/lib/useSession";
 type Item = { href: string; label: string; role?: string };
 const groups: { title: string; items: Item[] }[] = [
   { title: t("My work"), items: [
+    { href: "/home", label: t("Home") },
     { href: "/work", label: t("Inbox") },
     { href: "/cases", label: t("All cases") },
     { href: "/cases/new", label: t("New case") },
