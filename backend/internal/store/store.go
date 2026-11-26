@@ -106,7 +106,8 @@ type Case struct {
 	RelatedIDs   []string         `json:"relatedIds,omitempty"`
 	Status       string           `json:"status"`
 	Instance     *engine.Instance `json:"instance"`
-	Revision     int              `json:"revision"` // optimistic lock, bumped by every PutCase
+	Revision     int              `json:"revision"`       // optimistic lock, bumped by every PutCase
+	Test         bool             `json:"test,omitempty"` // studio test run, hidden from work lists and reports
 	Stage        string           `json:"stage,omitempty"`
 	StageHistory []StageEntry     `json:"stageHistory,omitempty"`
 	Incidents    int              `json:"incidents,omitempty"`  // open incidents (cached count)
@@ -131,6 +132,7 @@ type Work struct {
 	CaseNumber  string     `json:"caseNumber"`
 	CaseTitle   string     `json:"caseTitle"`
 	ScreenKey   string     `json:"screenKey,omitempty"`
+	Test        bool       `json:"test,omitempty"`
 	Embed       bool       `json:"embed,omitempty"`
 	Status      WorkStatus `json:"status"`
 	CreatedAt   time.Time  `json:"createdAt"`

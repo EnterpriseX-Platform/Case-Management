@@ -126,7 +126,22 @@ export type ActionDef = {
   key: string; label: string; kind: "update" | "stage" | "child"; target?: string; formKey?: string;
   stages?: string[]; roles?: string[]; pass?: string[]; confirm?: boolean;
 };
-export type CaseModel = { stages: StageDef[]; data: DataFieldDef[]; rules?: DataRuleDef[]; actions: ActionDef[] };
+export type CaseModel = { stages: StageDef[]; data: DataFieldDef[]; rules?: DataRuleDef[]; actions: ActionDef[]; lifecycle?: Lifecycle; decisions?: DecisionTable[]; connectors?: Connector[] };
 export type StageView = { key: string; name: string; kind: string; state: "done" | "current" | "upcoming" | "skipped"; entered?: string; left?: string; dueAt?: string };
 export type ActionView = ActionDef & { allowed: boolean };
 export type EventRec = { seq: number; at: string; type: string; node?: string; token?: string; by?: string; data?: Record<string, unknown> };
+
+// ---- studio ----
+export type LCStep = {
+  key: string; name: string; kind: "task" | "approval" | "automation" | "decision" | "wait" | "child" | "timer";
+  role?: string; form?: string; screen?: string; url?: string; sla?: string; when?: string; multi?: string;
+  onReject?: string; decisionField?: string; connector?: string; decision?: string; message?: string; caseType?: string;
+};
+export type LCStage = { key: string; name: string; kind: "primary" | "alternate" | "resolution"; sla?: string; steps: LCStep[] };
+export type Lifecycle = { stages: LCStage[]; detached?: boolean };
+export type DTColumn = { key: string; label: string };
+export type DecisionTable = { key: string; name: string; inputs: DTColumn[]; outputs: DTColumn[]; rows: { when: string[]; then: string[]; note?: string }[]; hit?: string };
+export type Connector = {
+  key: string; name: string; method: string; url: string; headers?: Record<string, string>; body?: Record<string, string>;
+  response?: Record<string, string>; timeout?: number; retries?: number;
+};

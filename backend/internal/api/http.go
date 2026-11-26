@@ -177,6 +177,59 @@ func (s *Server) Handler() http.Handler {
 		}
 		return map[string]any{"ok": true}, s.S.Relate(r.Context(), actor(r), r.PathValue("id"), other, in.Link)
 	})
+	h("GET /api/versions/{id}/lifecycle", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		v, err := s.S.S.GetVersion(r.Context(), r.PathValue("id"))
+		if err != nil {
+			return nil, err
+		}
+		if v.Model == nil || v.Model.Lifecycle == nil {
+			return map[string]any{"stages": []any{}}, nil
+		}
+		return v.Model.Lifecycle, nil
+	})
+	h("PUT /api/versions/{id}/lifecycle", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		var l store.Lifecycle
+		if err := decode(r, &l); err != nil {
+			return nil, err
+		}
+		v, warn, err := s.S.SaveLifecycle(r.Context(), actor(r), r.PathValue("id"), &l)
+		return map[string]any{"version": v, "warnings": warn}, err
+	})
+	h("POST /api/versions/{id}/decisions/{key}/test", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		var in map[string]any
+		_ = decode(r, &in)
+		return s.S.TestDecision(r.Context(), actor(r), r.PathValue("id"), r.PathValue("key"), in)
+	})
+	h("POST /api/connectors/test", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		var in struct {
+			Connector store.Connector `json:"connector"`
+			Vars      map[string]any  `json:"vars"`
+		}
+		if err := decode(r, &in); err != nil {
+			return nil, err
+		}
+		return s.S.TestConnector(r.Context(), actor(r), &in.Connector, in.Vars)
+	})
+	m.HandleFunc("GET /api/processes/{key}/export", func(w http.ResponseWriter, r *http.Request) {
+		if !actor(r).Has(app.RoleDesigner) && !actor(r).Has(app.RoleAdmin) {
+			writeErr(w, app.ErrForbidden)
+			return
+		}
+		vid := r.URL.Query().Get("version")
+		if vid == "" {
+			if vs, err := s.S.S.ListVersions(r.Context(), r.PathValue("key")); err == nil && len(vs) > 0 {
+				vid = vs[0].ID
+			}
+		}
+		b, name, err := s.S.ExportApp(r.Context(), r.PathValue("key"), vid)
+		if err != nil {
+			writeErr(w, err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/zip")
+		w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
+		w.Write(b)
+	})
 	h("GET /api/versions/{id}/steps", func(w http.ResponseWriter, r *http.Request) (any, error) {
 		return s.S.Steps(r.Context(), r.PathValue("id"))
 	})
@@ -246,8 +299,12 @@ func (s *Server) Handler() http.Handler {
 		fy, _ := strconv.Atoi(q.Get("fiscalYear"))
 		st := q.Get("status")
 		mine := q.Get("mine") == "1"
+		tests := q.Get("test") == "1"
 		out := []*store.Case{}
 		for _, c := range cs {
+			if c.Test != tests {
+				continue
+			}
 			if (fy == 0 || c.FiscalYear == fy) && (st == "" || c.Status == st) && (!mine || c.CreatedBy == actor(r).ID) {
 				out = append(out, c)
 			}
@@ -515,6 +572,9 @@ func (s *Server) dashboard(ctx context.Context, r *http.Request) (any, error) {
 	caseVersion := map[string]string{}
 	for _, c := range cases {
 		if fy != 0 && c.FiscalYear != fy {
+			continue
+		}
+		if c.Test {
 			continue
 		}
 		byStatus[c.Status]++

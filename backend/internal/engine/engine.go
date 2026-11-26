@@ -241,7 +241,7 @@ func (r *run) enter(t *Token) error {
 		if n.Type == bpmn.BusinessRuleTask {
 			kind = JobRule
 		}
-		if n.Ext["url"] == "" && n.Ext["rule"] == "" && n.Ext["connector"] == "" {
+		if n.Ext["url"] == "" && n.Ext["rule"] == "" && n.Ext["connector"] == "" && n.Ext["decision"] == "" {
 			r.complete(t) // nothing to call: pass-through step
 			return nil
 		}

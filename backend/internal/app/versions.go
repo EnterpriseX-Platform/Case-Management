@@ -88,6 +88,14 @@ func (s *Service) UpdateDraft(ctx context.Context, by Actor, vid, xml string, fy
 			return nil, nil, err
 		}
 		v.BPMN, v.Checksum = xml, checksum(xml)
+		if v.Model != nil && v.Model.Lifecycle != nil && !v.Model.Lifecycle.Detached {
+			// hand-edited BPMN: the lifecycle must no longer regenerate it
+			m := *v.Model
+			lc := *m.Lifecycle
+			lc.Detached = true
+			m.Lifecycle = &lc
+			v.Model = &m
+		}
 	}
 	if fy != 0 {
 		v.FiscalYear = fy

@@ -216,9 +216,10 @@ func (s *Service) runJob(ctx context.Context, j *store.JobRec) error {
 		return s.S.DeleteJob(ctx, j.ID)
 	}
 	jctx := WithIdempotencyKey(ctx, j.ID)
-	var out map[string]any
-	var callErr error
-	if j.Kind == engine.JobRule {
+	out, handled, callErr := s.studioJob(jctx, c.VersionID, n, j.Vars)
+	if handled {
+		// decision table / studio connector
+	} else if j.Kind == engine.JobRule {
 		out, callErr = s.E.H.Rule(jctx, n, j.Vars)
 	} else {
 		out, callErr = s.E.H.Service(jctx, n, j.Vars)

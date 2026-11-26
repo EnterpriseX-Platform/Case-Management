@@ -98,6 +98,37 @@ func ValidateModel(m *CaseModel, p *bpmn.Process) error {
 			return invalid("field %s: enum needs options", f.Key)
 		}
 	}
+	for i, d := range m.Decisions {
+		if !keyPattern.MatchString(d.Key) {
+			return invalid("decision table #%d: key %q must be lowercase", i+1, d.Key)
+		}
+		for r, row := range d.Rows {
+			if len(row.When) > len(d.Inputs) || len(row.Then) > len(d.Outputs) {
+				return invalid("decision %s row %d has more cells than columns", d.Key, r+1)
+			}
+		}
+	}
+	for i, c := range m.Connectors {
+		if !keyPattern.MatchString(c.Key) {
+			return invalid("connector #%d: key %q must be lowercase", i+1, c.Key)
+		}
+		if !strings.HasPrefix(c.URL, "http://") && !strings.HasPrefix(c.URL, "https://") && !strings.HasPrefix(c.URL, "${") {
+			return invalid("connector %s: URL must start with http:// or https://", c.Key)
+		}
+		for _, v := range c.Headers {
+			if strings.Contains(strings.ToLower(v), "bearer ") && !strings.Contains(v, "${secret:") {
+				return invalid("connector %s: put credentials in a secret (${secret:NAME}), not in the model", c.Key)
+			}
+		}
+	}
+	for _, n := range p.Nodes {
+		if k := n.Ext["decision"]; k != "" && !hasDecision(m, k) {
+			return invalid("step %s uses unknown decision table %q", n.ID, k)
+		}
+		if k := n.Ext["connector"]; k != "" && !hasConnector(m, k) {
+			return invalid("step %s uses unknown connector %q", n.ID, k)
+		}
+	}
 	acts := map[string]bool{}
 	for i, a := range m.Actions {
 		if !keyPattern.MatchString(a.Key) {
@@ -631,4 +662,22 @@ func (s *Service) Relate(ctx context.Context, by Actor, caseID, otherID string, 
 		s.audit(ctx, by, map[bool]string{true: "case.relate", false: "case.unrelate"}[link], "case", caseID, map[string]any{"other": otherID})
 		return nil
 	})
+}
+
+func hasDecision(m *CaseModel, k string) bool {
+	for _, d := range m.Decisions {
+		if d.Key == k {
+			return true
+		}
+	}
+	return false
+}
+
+func hasConnector(m *CaseModel, k string) bool {
+	for _, c := range m.Connectors {
+		if c.Key == k {
+			return true
+		}
+	}
+	return false
 }

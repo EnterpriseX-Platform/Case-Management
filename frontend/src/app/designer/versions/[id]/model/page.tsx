@@ -22,13 +22,20 @@ const ident = (s: string) => (s.replace(/[^A-Za-z0-9]+(.)?/g, (_, c) => (c ? c.t
 type Tab = "stages" | "data" | "actions";
 
 export default function ModelDesigner() {
-  const { id } = useParams<{ id: string }>();
+  const prm = useParams<{ id?: string; vid?: string }>();
+  const id = (prm.id ?? prm.vid) as string; // also mounted inside the App Studio
   const { data: v } = useLoad(() => api.get<Version>(`/api/versions/${id}`), [id]);
   const { data: loaded, error } = useLoad(() => api.get<CaseModel>(`/api/versions/${id}/model`), [id]);
   const { data: forms } = useLoad(() => api.get<Form[]>("/api/forms"));
   const { data: procs } = useLoad(() => api.get<ProcessDef[]>("/api/processes"));
   const [m, setM] = useState<CaseModel>({ stages: [], data: [], rules: [], actions: [] });
-  const [tab, setTab] = useState<Tab>("stages");
+  const inStudio = !!prm.vid;
+  const [tab, setTab] = useState<Tab>(() => {
+    if (typeof window === "undefined") return "stages";
+    const seg = location.pathname.split("/")[4];
+    const q = new URLSearchParams(location.search).get("tab") ?? seg;
+    return (q === "data" || q === "actions" ? q : "stages") as Tab;
+  });
   const [e, setE] = useState<string>();
   const [msg, setMsg] = useState<string>();
   const [focus, setFocus] = useState<string>();
@@ -74,7 +81,7 @@ export default function ModelDesigner() {
   const unassigned = steps.filter((s) => !ownerOf(s.id) && !/Event$/.test(s.type) && !/Gateway$/.test(s.type));
 
   return (
-    <Page title={`${t("Case model")} · ${v?.processKey ?? ""} v${v?.no ?? ""}`} actions={<>
+    <Page title={inStudio ? t(tab === "data" ? "Data model" : tab === "actions" ? "Actions" : "Stages") : `${t("Case model")} · ${v?.processKey ?? ""} v${v?.no ?? ""}`} actions={inStudio ? (draft ? <button className="btn" onClick={save}>{t("Save")}</button> : null) : <>
       {v && <Status s={v.status} />}
       <Link className="btn-o" href={`/designer/versions/${id}`}>{t("Edit flow")}</Link>
       <Link className="btn-o" href={`/designer/versions/${id}/mapping`}>{t("Step screens")}</Link>
@@ -82,13 +89,13 @@ export default function ModelDesigner() {
     </>}>
       <Err e={error ?? e} />{msg && <div className="ok">{msg}</div>}
       {v && !draft && <div className="warn">{t("This version cannot be edited. Copy it to a new version.")}</div>}
-      <div className="tabs">
+      {!inStudio && <div className="tabs">
         {(["stages", "data", "actions"] as Tab[]).map((x) => (
           <button key={x} className={tab === x ? "on" : ""} onClick={() => setTab(x)}>
             {x === "stages" ? `${t("Stages")} (${m.stages.length})` : x === "data" ? `${t("Data model")} (${m.data.length})` : `${t("Actions")} (${m.actions.length})`}
           </button>
         ))}
-      </div>
+      </div>}
 
       {tab === "stages" && (
         <>

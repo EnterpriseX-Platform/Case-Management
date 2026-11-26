@@ -114,6 +114,7 @@ type StartInput struct {
 	StartEvent string         `json:"startEvent,omitempty"`
 	Vars       map[string]any `json:"vars"`
 	ParentID   string         `json:"parentId,omitempty"`
+	Test       bool           `json:"test,omitempty"` // studio test run
 	number     int            // pre-allocated outside the transaction
 	RelatedIDs []string       `json:"relatedIds,omitempty"`
 }
@@ -173,7 +174,13 @@ func (s *Service) startCase(ctx context.Context, by Actor, in StartInput, parent
 	now := s.Now()
 	c := &store.Case{ID: id.New(), Number: fmt.Sprintf("%s-%d-%05d", strings.ToUpper(v.ProcessKey), fy, n),
 		ProcessKey: v.ProcessKey, VersionID: v.ID, Title: in.Title, FiscalYear: fy, ParentID: in.ParentID,
-		RelatedIDs: in.RelatedIDs, CreatedBy: by.ID, CreatedAt: now, UpdatedAt: now}
+		RelatedIDs: in.RelatedIDs, CreatedBy: by.ID, CreatedAt: now, UpdatedAt: now, Test: in.Test}
+	if in.Test {
+		if !by.Has(RoleDesigner) {
+			return nil, ErrForbidden
+		}
+		c.Number = "TEST-" + c.Number
+	}
 	if c.Title == "" {
 		c.Title = c.Number
 	}
@@ -286,7 +293,7 @@ func (s *Service) applyOnce(ctx context.Context, by Actor, c *store.Case, p *bpm
 	}
 	var skipped *engine.Effects
 	for _, wi := range fx.NewWork {
-		w := &store.Work{WorkItem: wi, CaseID: c.ID, CaseNumber: c.Number, CaseTitle: c.Title, Status: store.WorkOpen, CreatedAt: now}
+		w := &store.Work{WorkItem: wi, CaseID: c.ID, CaseNumber: c.Number, CaseTitle: c.Title, Status: store.WorkOpen, CreatedAt: now, Test: c.Test}
 		if b, ok := bmap[wi.Node]; ok {
 			if b.UI != "" {
 				w.UI = b.UI
@@ -467,7 +474,7 @@ func (s *Service) deliver(ctx context.Context, by Actor, from *store.Case, ob en
 // ---------------------------------------------------------------- work
 
 func (s *Service) canWork(by Actor, w *store.Work) bool {
-	if by.Has(RoleSupervisor) || strings.HasPrefix(by.ID, "system") {
+	if by.Has(RoleSupervisor) || strings.HasPrefix(by.ID, "system") || (w.Test && by.Has(RoleDesigner)) {
 		return true
 	}
 	if w.Assignee != "" {
@@ -482,7 +489,14 @@ func (s *Service) Inbox(ctx context.Context, by Actor, all bool) ([]*store.Work,
 	if !(all && by.Has(RoleSupervisor)) {
 		f.Assignee, f.Roles = by.ID, by.Roles
 	}
-	return s.S.ListWork(ctx, f)
+	ws, err := s.S.ListWork(ctx, f)
+	out := ws[:0]
+	for _, w := range ws {
+		if !w.Test { // studio test runs never show in real work lists
+			out = append(out, w)
+		}
+	}
+	return out, err
 }
 
 func (s *Service) Claim(ctx context.Context, by Actor, workID string) (*store.Work, error) {

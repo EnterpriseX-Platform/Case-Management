@@ -18,6 +18,7 @@ const groups: { title: string; items: Item[] }[] = [
     { href: "/incidents", label: t("Incidents"), role: "cm:supervisor" },
   ] },
   { title: t("Design"), items: [
+    { href: "/studio", label: t("App Studio"), role: "cm:designer" },
     { href: "/designer", label: t("Case types & flows"), role: "cm:designer" },
     { href: "/designer/forms", label: t("Forms"), role: "cm:designer" },
     { href: "/designer/screens", label: t("Screens"), role: "cm:designer" },

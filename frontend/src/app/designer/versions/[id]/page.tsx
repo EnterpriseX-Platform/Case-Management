@@ -9,7 +9,9 @@ import { Modeler, ModelerHandle } from "@/components/Bpmn";
 import { Err, Field, Page, Status } from "@/components/ui";
 
 export default function FlowEditor() {
-  const { id } = useParams<{ id: string }>();
+  const prm = useParams<{ id?: string; vid?: string }>();
+  const id = (prm.id ?? prm.vid) as string; // also mounted inside the App Studio
+  const inStudio = !!prm.vid;
   const { data: v, error, setData } = useLoad(() => api.get<Version>(`/api/versions/${id}`), [id]);
   const m = useRef<ModelerHandle>(null);
   const [e, setE] = useState<string>();
@@ -42,7 +44,7 @@ export default function FlowEditor() {
     <Page title={`${v.processKey} v${v.no}`} actions={<>
       <Status s={v.status} />
       <Link className="btn-o" href={`/designer/${v.processKey}`}>{t("All versions")}</Link>
-      <Link className="btn-o" href={`/designer/versions/${id}/model`}>{t("Case model")}</Link>
+      {!inStudio && <Link className="btn-o" href={`/designer/versions/${id}/model`}>{t("Case model")}</Link>}
       <Link className="btn-o" href={`/designer/versions/${id}/mapping`}>{t("Step screens")}</Link>
       <button className="btn-o" onClick={download}>{t("Export BPMN")}</button>
       {draft && <button className="btn" onClick={save}>{t("Save")}</button>}
