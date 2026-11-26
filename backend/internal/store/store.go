@@ -105,7 +105,9 @@ type Case struct {
 	RelatedIDs []string         `json:"relatedIds,omitempty"`
 	Status     string           `json:"status"`
 	Instance   *engine.Instance `json:"instance"`
-	Revision   int              `json:"revision"` // optimistic lock, bumped by every PutCase
+	Revision   int              `json:"revision"`             // optimistic lock, bumped by every PutCase
+	Incidents  int              `json:"incidents,omitempty"`  // open incidents (cached count)
+	Subscribed bool             `json:"subscribed,omitempty"` // has rows in the subscription index
 	CreatedBy  string           `json:"createdBy"`
 	CreatedAt  time.Time        `json:"createdAt"`
 	UpdatedAt  time.Time        `json:"updatedAt"`
@@ -138,6 +140,7 @@ type WorkFilter struct {
 	Assignee string
 	CaseID   string
 	Status   []WorkStatus
+	Limit    int // 0 = no limit
 }
 
 type Audit struct {

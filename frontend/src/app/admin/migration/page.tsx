@@ -1,4 +1,5 @@
 "use client";
+import { t } from "@/lib/i18n";
 import { useState } from "react";
 import { api, ProcessDef, Version } from "@/lib/api";
 import { useLoad } from "@/lib/useLoad";
@@ -20,14 +21,14 @@ export default function Migration() {
   const tnodes = target ? Array.from(target.bpmn.matchAll(/<(\w+)\s[^>]*id="([^"]+)"[^>]*name="([^"]*)"/g)).filter((m) => /Task|task|Event|subProcess|callActivity/.test(m[1])).map((m) => ({ value: m[2], label: m[3] || m[2], hint: m[1] })) : [];
   const run = (dryRun: boolean) => api.post<Res>("/api/migrations", { from, to, mapping: map, dryRun }).then((r) => { setRes(r); setE(undefined); }).catch((x) => setE(x.message));
   return (
-    <Page title="Version migration">
+    <Page title={t("Version migration")}>
       <div className="card">
         <div className="row3">
-          <Field label="Case type"><Dropdown options={(procs ?? []).map((p) => ({ value: p.key, label: p.name }))} value={key} onChange={(k) => { setKey(k); setFrom(""); setTo(""); setRes(undefined); }} /></Field>
-          <Field label="From version"><Dropdown options={vo} value={from} onChange={setFrom} /></Field>
-          <Field label="To version"><Dropdown options={vo} value={to} onChange={setTo} /></Field>
+          <Field label={t("Case type")}><Dropdown options={(procs ?? []).map((p) => ({ value: p.key, label: p.name }))} value={key} onChange={(k) => { setKey(k); setFrom(""); setTo(""); setRes(undefined); }} /></Field>
+          <Field label={t("From version")}><Dropdown options={vo} value={from} onChange={setFrom} /></Field>
+          <Field label={t("To version")}><Dropdown options={vo} value={to} onChange={setTo} /></Field>
         </div>
-        <div className="bar"><button className="btn-o" disabled={!from || !to} onClick={() => run(true)}>Dry run</button></div>
+        <div className="bar"><button className="btn-o" disabled={!from || !to} onClick={() => run(true)}>{t("Dry run")}</button></div>
         <Err e={e} />
       </div>
       {res && (
@@ -44,13 +45,13 @@ export default function Migration() {
             </>
           )}
           <table className="tbl mt">
-            <thead><tr><th>Case</th><th>Old step → new step</th><th>Result</th></tr></thead>
+            <thead><tr><th>{t("Case")}</th><th>{t("Old step → new step")}</th><th>{t("Result")}</th></tr></thead>
             <tbody>{res.cases.map((c) => (
               <tr key={c.caseId}><td>{c.number}</td><td>{Object.entries(c.moves).map(([a, b]) => (a === b ? a : `${a} → ${b}`)).join(", ")}</td><td>{c.error ?? "Ready"}</td></tr>
             ))}</tbody>
           </table>
           {res.dryRun && <div className="bar"><button className="btn-o" onClick={() => run(true)}>Run dry run again</button>
-            <button className="btn" disabled={res.unmapped.some((n) => !map[n])} onClick={() => { if (confirm("Move cases to the new version?")) run(false); }}>Migrate</button></div>}
+            <button className="btn" disabled={res.unmapped.some((n) => !map[n])} onClick={() => { if (confirm("Move cases to the new version?")) run(false); }}>{t("Migrate")}</button></div>}
         </section>
       )}
     </Page>

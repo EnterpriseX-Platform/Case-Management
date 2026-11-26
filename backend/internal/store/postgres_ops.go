@@ -52,14 +52,15 @@ func (p *Postgres) ListIncidents(ctx context.Context, st IncidentStatus, caseID 
 }
 
 func (p *Postgres) AppendEvents(ctx context.Context, ev []EventRec) error {
-	for _, e := range ev {
-		if err := p.exec(ctx, `INSERT INTO cm_event(tenant_id,case_id,at,type,node,data) VALUES($1,$2,$3,$4,NULLIF($5,''),$6)`,
-			p.Tenant, e.CaseID, e.At, e.Type, e.Node, js(e)); err != nil {
-			return err
-		}
+	if len(ev) == 0 {
+		return nil
 	}
-	return nil
+	// one round trip for the whole batch
+	return p.exec(ctx, `INSERT INTO cm_event(tenant_id,case_id,at,type,node,data)
+		SELECT $1, e->>'caseId', (e->>'at')::timestamptz, e->>'type', NULLIF(e->>'node',''), e
+		FROM jsonb_array_elements($2::jsonb) e`, p.Tenant, js(ev))
 }
+
 func (p *Postgres) ListEvents(ctx context.Context, caseID string, limit int) ([]*EventRec, error) {
 	if limit <= 0 {
 		limit = 5000
@@ -71,17 +72,15 @@ func (p *Postgres) ListEvents(ctx context.Context, caseID string, limit int) ([]
 }
 
 func (p *Postgres) ReplaceSubscriptions(ctx context.Context, caseID string, subs []Subscription) error {
-	if err := p.exec(ctx, `DELETE FROM cm_subscription WHERE tenant_id=$1 AND case_id=$2`, p.Tenant, caseID); err != nil {
-		return err
+	if subs == nil {
+		subs = []Subscription{}
 	}
-	for _, s := range subs {
-		if err := p.exec(ctx, `INSERT INTO cm_subscription(tenant_id,case_id,token_id,kind,name) VALUES($1,$2,$3,$4,$5)
-			ON CONFLICT DO NOTHING`, p.Tenant, caseID, s.TokenID, s.Kind, s.Name); err != nil {
-			return err
-		}
-	}
-	return nil
+	return p.exec(ctx, `WITH d AS (DELETE FROM cm_subscription WHERE tenant_id=$1 AND case_id=$2)
+		INSERT INTO cm_subscription(tenant_id,case_id,token_id,kind,name)
+		SELECT DISTINCT $1, $2, s->>'tokenId', s->>'kind', s->>'name' FROM jsonb_array_elements($3::jsonb) s
+		ON CONFLICT DO NOTHING`, p.Tenant, caseID, js(subs))
 }
+
 func (p *Postgres) FindSubscriptions(ctx context.Context, kind, name string) ([]Subscription, error) {
 	rows, err := p.q(ctx).Query(ctx, `SELECT case_id, token_id, kind, name FROM cm_subscription WHERE tenant_id=$1 AND kind=$2 AND name=$3`, p.Tenant, kind, name)
 	if err != nil {

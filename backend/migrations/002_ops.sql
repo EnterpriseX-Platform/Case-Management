@@ -51,3 +51,7 @@ CREATE TABLE IF NOT EXISTS cm_subscription (
   PRIMARY KEY (tenant_id, case_id, token_id, kind, name)
 );
 CREATE INDEX IF NOT EXISTS cm_subscription_name ON cm_subscription (tenant_id, kind, name);
+
+-- worklist: open items per role ordered by urgency
+CREATE INDEX IF NOT EXISTS cm_work_queue ON cm_work (tenant_id, status, role, due_at, created_at) WHERE assignee IS NULL;
+CREATE INDEX IF NOT EXISTS cm_work_mine  ON cm_work (tenant_id, assignee, status) WHERE assignee IS NOT NULL;

@@ -9,6 +9,10 @@
 //	MODE           all (default) | api | worker — run API and/or background workers;
 //	               scale each independently (any number of replicas of each)
 //	WORKER_ID      worker name used for job leases (default: hostname-pid)
+//	OIDC_ISSUER    enable OIDC bearer auth (e.g. https://sso.example/realms/main)
+//	OIDC_AUDIENCE  expected audience / client id (optional)
+//	OIDC_ROLES_CLAIM  claim holding roles, dotted (default "roles"; Keycloak: realm_access.roles)
+//	OIDC_ROLE_PREFIX  only use roles with this prefix (prefix removed)
 package main
 
 import (
@@ -95,7 +99,7 @@ func main() {
 	if addr == "" {
 		addr = ":8080"
 	}
-	srv := &http.Server{Addr: addr, Handler: (&api.Server{S: svc, PublicURL: os.Getenv("PUBLIC_URL")}).Handler(),
+	srv := &http.Server{Addr: addr, Handler: apiServer(svc).Handler(),
 		ReadHeaderTimeout: 10 * time.Second}
 	go func() {
 		<-ctx.Done()
@@ -108,6 +112,21 @@ func main() {
 		slog.Error("server", "err", err)
 		os.Exit(1)
 	}
+}
+
+// apiServer picks the authentication: OIDC bearer tokens when OIDC_ISSUER is
+// set (production), otherwise trusted X-User / X-Roles headers (development).
+func apiServer(svc *app.Service) *api.Server {
+	srv := &api.Server{S: svc, PublicURL: os.Getenv("PUBLIC_URL")}
+	if iss := os.Getenv("OIDC_ISSUER"); iss != "" {
+		o := api.NewOIDC(iss, os.Getenv("OIDC_AUDIENCE"), os.Getenv("OIDC_ROLES_CLAIM"))
+		o.RolePrefix = os.Getenv("OIDC_ROLE_PREFIX")
+		srv.Auth = o.Auth
+		slog.Info("auth: OIDC", "issuer", iss)
+	} else {
+		slog.Warn("auth: development headers (set OIDC_ISSUER in production)")
+	}
+	return srv
 }
 
 // loop polls fn; when it found work it runs again immediately.

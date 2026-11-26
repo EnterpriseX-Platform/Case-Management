@@ -1,4 +1,5 @@
 "use client";
+import { t } from "@/lib/i18n";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, Screen } from "@/lib/api";
@@ -11,10 +12,10 @@ export default function Screens() {
   const r = useRouter();
   const { data, error } = useLoad(() => api.get<Screen[]>("/api/screens"));
   return (
-    <Page title="Screens" actions={<button className="btn" onClick={() => { const k = prompt("Screen key"); if (k) r.push(`/designer/screens/${k}`); }}>New screen</button>}>
+    <Page title={t("Screens")} actions={<button className="btn" onClick={() => { const k = prompt("Screen key"); if (k) r.push(`/designer/screens/${k}`); }}>{t("New screen")}</button>}>
       <Err e={error} />
       <table className="tbl">
-        <thead><tr><th>Key</th><th>Name</th><th>Used for</th><th>Role</th></tr></thead>
+        <thead><tr><th>{t("Key")}</th><th>{t("Name")}</th><th>{t("Used for")}</th><th>{t("Role")}</th></tr></thead>
         <tbody>{(data ?? []).map((s) => (
           <tr key={s.key}><td><Link href={`/designer/screens/${s.key}`}>{s.key}</Link></td><td>{s.name}</td><td>{KIND[s.kind] ?? s.kind}</td><td>{s.roles?.join(", ") ?? "All roles"}</td></tr>
         ))}</tbody>

@@ -23,6 +23,18 @@ export function setSession(s: Session | null) {
   window.dispatchEvent(new Event("cm-session"));
 }
 
+// Access token from the OIDC sign-in (sessionStorage), if any.
+function bearer(): string | null {
+  try {
+    const raw = sessionStorage.getItem("cm.token");
+    if (!raw) return null;
+    const t = JSON.parse(raw) as { access: string; exp: number };
+    return t.exp * 1000 > Date.now() ? t.access : null;
+  } catch {
+    return null;
+  }
+}
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -32,7 +44,9 @@ export class ApiError extends Error {
 async function call<T>(method: string, path: string, body?: unknown, raw?: BodyInit): Promise<T> {
   const s = getSession();
   const headers: Record<string, string> = {};
-  if (s) {
+  const token = bearer();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  else if (s) {
     headers["X-User"] = s.id;
     headers["X-User-Name"] = encodeURIComponent(s.name);
     headers["X-Roles"] = s.roles.join(",");
@@ -51,6 +65,11 @@ async function call<T>(method: string, path: string, body?: unknown, raw?: BodyI
   const r = await fetch(path, init);
   const text = await r.text();
   const data = text ? JSON.parse(text) : null;
+  if (r.status === 403 && token === null && sessionStorage.getItem("cm.token")) {
+    // expired SSO session: sign in again
+    setSession(null);
+    location.assign("/login");
+  }
   if (!r.ok) throw new ApiError(r.status, data?.error ?? r.statusText);
   return data as T;
 }

@@ -1,4 +1,5 @@
 "use client";
+import { t } from "@/lib/i18n";
 import Link from "next/link";
 import { useState } from "react";
 import { api, Case, ProcessDef } from "@/lib/api";
@@ -16,16 +17,16 @@ export default function Cases() {
   const { data, error } = useLoad(() => api.get<Case[]>(`/api/cases?${q}`), [q]);
   const years = Array.from(new Set((data ?? []).map((c) => c.fiscalYear).filter(Boolean)));
   return (
-    <Page title="All cases" actions={<Link className="btn" href="/cases/new">New case</Link>}>
+    <Page title={t("All cases")} actions={<Link className="btn" href="/cases/new">{t("New case")}</Link>}>
       <div className="filters">
-        <Dropdown placeholder="All case types" value={proc} onChange={setProc} options={(procs ?? []).map((p) => ({ value: p.key, label: p.name }))} />
-        <Dropdown placeholder="All fiscal years" value={fy} onChange={setFy} allowCustom options={years.map((y) => ({ value: String(y), label: String(y!) }))} />
-        <Dropdown placeholder="All statuses" value={st} onChange={setSt} options={["running", "completed", "cancelled", "failed"].map((x) => ({ value: x, label: x === "running" ? "In progress" : x === "completed" ? "Completed" : x === "cancelled" ? "Cancel" : "Failed" }))} />
+        <Dropdown placeholder={t("All case types")} value={proc} onChange={setProc} options={(procs ?? []).map((p) => ({ value: p.key, label: p.name }))} />
+        <Dropdown placeholder={t("All fiscal years")} value={fy} onChange={setFy} allowCustom options={years.map((y) => ({ value: String(y), label: String(y!) }))} />
+        <Dropdown placeholder={t("All statuses")} value={st} onChange={setSt} options={["running", "completed", "cancelled", "failed"].map((x) => ({ value: x, label: x === "running" ? "In progress" : x === "completed" ? "Completed" : x === "cancelled" ? "Cancel" : "Failed" }))} />
       </div>
       <Err e={error} />
       {data?.length ? (
         <table className="tbl">
-          <thead><tr><th>No.</th><th>Case</th><th>Type</th><th>Fiscal year</th><th>Current step</th><th>Status</th><th>Last updated</th></tr></thead>
+          <thead><tr><th>{t("No.")}</th><th>{t("Case")}</th><th>{t("Type")}</th><th>{t("Fiscal year")}</th><th>{t("Current step")}</th><th>{t("Status")}</th><th>{t("Last updated")}</th></tr></thead>
           <tbody>
             {data.map((c) => (
               <tr key={c.id}>
@@ -40,7 +41,7 @@ export default function Cases() {
             ))}
           </tbody>
         </table>
-      ) : data && <Empty>No cases</Empty>}
+      ) : data && <Empty>{t("No cases")}</Empty>}
     </Page>
   );
 }

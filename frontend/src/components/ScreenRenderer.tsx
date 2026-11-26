@@ -1,5 +1,6 @@
 "use client";
 // Renders a low-code screen layout (rows of widgets) for a task or case.
+import { t } from "@/lib/i18n";
 import Link from "next/link";
 import { Case, Screen, Widget, Audit, Version } from "@/lib/api";
 import { dt, money, th } from "@/lib/format";
@@ -21,10 +22,10 @@ export const DEFAULT_TASK: Screen = { key: "_default", name: "", kind: "task", l
 ] } };
 
 export const WIDGETS: { value: string; label: string }[] = [
-  { value: "form", label: "Step form" }, { value: "caseInfo", label: "Case details" },
-  { value: "history", label: "History" }, { value: "flow", label: "Flow diagram with current position" },
-  { value: "subCases", label: "Sub-cases" }, { value: "relatedCases", label: "Related cases" },
-  { value: "attachments", label: "Attachments" }, { value: "comments", label: "Comments" },
+  { value: "form", label: "Step form" }, { value: "caseInfo", label: t("Case details") },
+  { value: "history", label: t("History") }, { value: "flow", label: "Flow diagram with current position" },
+  { value: "subCases", label: t("Sub-cases") }, { value: "relatedCases", label: t("Related cases") },
+  { value: "attachments", label: t("Attachments") }, { value: "comments", label: t("Comments") },
   { value: "iframe", label: "External page (iframe)" }, { value: "markdown", label: "Text" },
 ];
 
@@ -53,15 +54,15 @@ function W({ w, ctx }: { w: Widget; ctx: Ctx }) {
     case "caseInfo":
       return c ? (
         <div>
-          <h3>Case details</h3>
+          <h3>{t("Case details")}</h3>
           <dl className="kv">
-            <dt>No.</dt><dd><Link href={`/cases/${c.id}`}>{c.number}</Link></dd>
-            <dt>Case</dt><dd>{c.title}</dd>
-            <dt>Fiscal year</dt><dd>{c.fiscalYear ? c.fiscalYear : "-"}</dd>
-            <dt>Status</dt><dd><Status s={c.status} /></dd>
+            <dt>{t("No.")}</dt><dd><Link href={`/cases/${c.id}`}>{c.number}</Link></dd>
+            <dt>{t("Case")}</dt><dd>{c.title}</dd>
+            <dt>{t("Fiscal year")}</dt><dd>{c.fiscalYear ? c.fiscalYear : "-"}</dd>
+            <dt>{t("Status")}</dt><dd><Status s={c.status} /></dd>
             <dt>flow</dt><dd>{c.processKey} v{ctx.version?.no ?? "?"}</dd>
-            <dt>Initiator</dt><dd>{c.createdBy}</dd>
-            <dt>Created</dt><dd>{dt(c.createdAt)}</dd>
+            <dt>{t("Initiator")}</dt><dd>{c.createdBy}</dd>
+            <dt>{t("Created")}</dt><dd>{dt(c.createdAt)}</dd>
           </dl>
           <Vars vars={ctx.vars ?? c.instance.vars} />
         </div>
@@ -69,9 +70,9 @@ function W({ w, ctx }: { w: Widget; ctx: Ctx }) {
     case "history":
       return (
         <div>
-          <h3>History</h3>
+          <h3>{t("History")}</h3>
           <table className="tbl">
-            <thead><tr><th>Time</th><th>By</th><th>Event</th></tr></thead>
+            <thead><tr><th>{t("Time")}</th><th>{t("By")}</th><th>{t("Event")}</th></tr></thead>
             <tbody>
               {(ctx.audit ?? []).map((a, i) => (
                 <tr key={i}><td className="nw">{dt(a.at)}</td><td>{a.actor}</td><td>{auditText(a)}</td></tr>
@@ -84,7 +85,7 @@ function W({ w, ctx }: { w: Widget; ctx: Ctx }) {
       if (!c || !ctx.version) return null;
       return (
         <div>
-          <h3>Flow diagram</h3>
+          <h3>{t("Flow diagram")}</h3>
           <Viewer xml={ctx.version.bpmn}
             active={(c.instance.tokens ?? []).map((t) => t.node)}
             done={Array.from(new Set(c.instance.history.filter((h) => h.event === "leave").map((h) => h.node)))} />
@@ -93,7 +94,7 @@ function W({ w, ctx }: { w: Widget; ctx: Ctx }) {
     case "subCases":
       return (
         <div>
-          <h3>Sub-cases</h3>
+          <h3>{t("Sub-cases")}</h3>
           {(ctx.children ?? []).length ? (
             <table className="tbl"><tbody>
               {ctx.children!.map((k) => (
@@ -104,13 +105,13 @@ function W({ w, ctx }: { w: Widget; ctx: Ctx }) {
         </div>
       );
     case "relatedCases":
-      return <div><h3>Related cases</h3><div className="muted">{c?.parentId ? <Link href={`/cases/${c.parentId}`}>Parent case</Link> : "-"}</div></div>;
+      return <div><h3>{t("Related cases")}</h3><div className="muted">{c?.parentId ? <Link href={`/cases/${c.parentId}`}>{t("Parent case")}</Link> : "-"}</div></div>;
     case "attachments": {
       const files = Object.entries(c?.instance.vars ?? {}).filter(([, v]) => Array.isArray(v) && v.every((x) => typeof x === "string" && /\.\w{2,5}$/.test(x)));
-      return <div><h3>Attachments</h3>{files.length ? <ul>{files.flatMap(([k, v]) => (v as string[]).map((f) => <li key={k + f}>{f}</li>))}</ul> : <div className="muted">-</div>}</div>;
+      return <div><h3>{t("Attachments")}</h3>{files.length ? <ul>{files.flatMap(([k, v]) => (v as string[]).map((f) => <li key={k + f}>{f}</li>))}</ul> : <div className="muted">-</div>}</div>;
     }
     case "comments":
-      return <div><h3>Comments</h3><div className="muted">{String(c?.instance.vars?.opinion ?? "-")}</div></div>;
+      return <div><h3>{t("Comments")}</h3><div className="muted">{String(c?.instance.vars?.opinion ?? "-")}</div></div>;
     case "iframe":
       return w.url ? <iframe className="ext" src={w.url} /> : null;
     case "markdown":

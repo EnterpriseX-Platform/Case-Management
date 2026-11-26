@@ -1,4 +1,5 @@
 "use client";
+import { t } from "@/lib/i18n";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useRef, useState } from "react";
@@ -40,10 +41,10 @@ export default function FlowEditor() {
   return (
     <Page title={`${v.processKey} v${v.no}`} actions={<>
       <Status s={v.status} />
-      <Link className="btn-o" href={`/designer/${v.processKey}`}>All versions</Link>
-      <Link className="btn-o" href={`/designer/versions/${id}/mapping`}>Step screens</Link>
-      <button className="btn-o" onClick={download}>Export BPMN</button>
-      {draft && <button className="btn" onClick={save}>Save</button>}
+      <Link className="btn-o" href={`/designer/${v.processKey}`}>{t("All versions")}</Link>
+      <Link className="btn-o" href={`/designer/versions/${id}/mapping`}>{t("Step screens")}</Link>
+      <button className="btn-o" onClick={download}>{t("Export BPMN")}</button>
+      {draft && <button className="btn" onClick={save}>{t("Save")}</button>}
     </>}>
       <Err e={e} />
       {msg && <div className="ok">{msg}</div>}
@@ -51,8 +52,8 @@ export default function FlowEditor() {
       {!draft && <div className="warn">This version {v.status === "published" ? "is in use" : "is not a draft"} and cannot be edited. Copy it to a new version.</div>}
       {draft && (
         <div className="row3">
-          <Field label="Fiscal year"><input inputMode="numeric" placeholder={v.fiscalYear ? String(v.fiscalYear) : ""} value={fy} onChange={(x) => setFy(x.target.value)} /></Field>
-          <Field label="Selected element"><div className="display">{sel.id ? `${sel.name || "(unnamed)"} · ${sel.type} · ${sel.id}` : "-"}</div></Field>
+          <Field label={t("Fiscal year")}><input inputMode="numeric" placeholder={v.fiscalYear ? String(v.fiscalYear) : ""} value={fy} onChange={(x) => setFy(x.target.value)} /></Field>
+          <Field label={t("Selected element")}><div className="display">{sel.id ? `${sel.name || "(unnamed)"} · ${sel.type} · ${sel.id}` : "-"}</div></Field>
         </div>
       )}
       <Modeler ref={m} xml={v.bpmn} readOnly={!draft} onSelect={(id, name, type) => setSel({ id, name, type })} />

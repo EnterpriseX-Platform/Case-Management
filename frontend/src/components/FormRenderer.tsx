@@ -1,6 +1,7 @@
 "use client";
 // Renders a low-code form schema. Used by task screens and by the form
 // builder preview.
+import { t } from "@/lib/i18n";
 import Dropdown from "./Dropdown";
 import DropZone from "./DropZone";
 import { Field as F } from "@/lib/api";
@@ -87,12 +88,12 @@ function Input({ f, v, set, ro }: { f: F; v: any; set: (v: any) => void; ro?: bo
                       }} />
                     </td>
                   ))}
-                  {!ro && <td><button type="button" className="link" onClick={() => set(rows.filter((_, j) => j !== i))}>Remove</button></td>}
+                  {!ro && <td><button type="button" className="link" onClick={() => set(rows.filter((_, j) => j !== i))}>{t("Remove")}</button></td>}
                 </tr>
               ))}
             </tbody>
           </table>
-          {!ro && <button type="button" className="btn-s" onClick={() => set([...rows, {}])}>Add row</button>}
+          {!ro && <button type="button" className="btn-s" onClick={() => set([...rows, {}])}>{t("Add row")}</button>}
         </div>
       );
     }

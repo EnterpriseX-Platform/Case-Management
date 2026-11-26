@@ -1,30 +1,31 @@
 "use client";
+import { currentLang, setLang, t } from "@/lib/i18n";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { setSession } from "@/lib/api";
+import { signOut } from "@/lib/oidc";
 import { has, useSession } from "@/lib/useSession";
 
 type Item = { href: string; label: string; role?: string };
 const groups: { title: string; items: Item[] }[] = [
-  { title: "My work", items: [
-    { href: "/work", label: "Inbox" },
-    { href: "/cases", label: "All cases" },
-    { href: "/cases/new", label: "New case" },
+  { title: t("My work"), items: [
+    { href: "/work", label: t("Inbox") },
+    { href: "/cases", label: t("All cases") },
+    { href: "/cases/new", label: t("New case") },
   ] },
-  { title: "Monitoring", items: [
-    { href: "/supervisor", label: "Overview & queues", role: "cm:supervisor" },
-    { href: "/incidents", label: "Incidents", role: "cm:supervisor" },
+  { title: t("Monitoring"), items: [
+    { href: "/supervisor", label: t("Overview & queues"), role: "cm:supervisor" },
+    { href: "/incidents", label: t("Incidents"), role: "cm:supervisor" },
   ] },
-  { title: "Design", items: [
-    { href: "/designer", label: "Case types & flows", role: "cm:designer" },
-    { href: "/designer/forms", label: "Forms", role: "cm:designer" },
-    { href: "/designer/screens", label: "Screens", role: "cm:designer" },
+  { title: t("Design"), items: [
+    { href: "/designer", label: t("Case types & flows"), role: "cm:designer" },
+    { href: "/designer/forms", label: t("Forms"), role: "cm:designer" },
+    { href: "/designer/screens", label: t("Screens"), role: "cm:designer" },
   ] },
-  { title: "Administrator", items: [
-    { href: "/admin", label: "Import", role: "cm:admin" },
-    { href: "/admin/migration", label: "Version migration", role: "cm:admin" },
-    { href: "/admin/audit", label: "Audit log", role: "cm:admin" },
+  { title: t("Administrator"), items: [
+    { href: "/admin", label: t("Import"), role: "cm:admin" },
+    { href: "/admin/migration", label: t("Version migration"), role: "cm:admin" },
+    { href: "/admin/audit", label: t("Audit log"), role: "cm:admin" },
   ] },
 ];
 
@@ -33,10 +34,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const router = useRouter();
   useEffect(() => {
-    if (s === null && path !== "/login") router.replace("/login");
+    if (s === null && path !== "/login" && !path.startsWith("/auth/")) router.replace("/login");
   }, [s, path, router]);
 
-  if (path === "/login") return <>{children}</>;
+  if (path === "/login" || path.startsWith("/auth/")) return <>{children}</>;
   if (!s) return null;
   const canDesign = has(s, "cm:designer") || has(s, "cm:approver");
   return (
@@ -45,8 +46,9 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         <Link href="/" className="hdr-name"><span>EnterpriseX</span>Case Management</Link>
         <div className="hdr-sp" />
         <div className="hdr-user">
+          <button onClick={() => setLang(currentLang() === "th" ? "en" : "th")} title={t("Language")}>{currentLang() === "th" ? "EN" : "ไทย"}</button>
           <span>{s.name}</span>
-          <button onClick={() => { setSession(null); router.replace("/login"); }}>Sign out</button>
+          <button onClick={() => signOut()}>{t("Sign out")}</button>
         </div>
       </header>
       <aside className="side">

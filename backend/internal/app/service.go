@@ -114,10 +114,25 @@ type StartInput struct {
 	StartEvent string         `json:"startEvent,omitempty"`
 	Vars       map[string]any `json:"vars"`
 	ParentID   string         `json:"parentId,omitempty"`
+	number     int            // pre-allocated outside the transaction
 	RelatedIDs []string       `json:"relatedIds,omitempty"`
 }
 
 func (s *Service) StartCase(ctx context.Context, by Actor, in StartInput) (*store.Case, error) {
+	// Allocate the case number in its own short statement: the per-type
+	// counter row would otherwise stay locked for the whole transaction and
+	// serialise every case creation of that type (numbers may skip on rollback).
+	if in.VersionID == "" {
+		if v, err := s.ResolveVersion(ctx, in.ProcessKey, in.FiscalYear); err == nil {
+			fy := in.FiscalYear
+			if fy == 0 {
+				fy = v.FiscalYear
+			}
+			if n, err := s.S.NextCaseNumber(ctx, fmt.Sprintf("%s-%d", v.ProcessKey, fy)); err == nil {
+				in.number = n
+			}
+		}
+	}
 	var out *store.Case
 	err := s.S.Tx(ctx, func(ctx context.Context) error {
 		c, err := s.startCase(ctx, by, in, "")
@@ -148,9 +163,12 @@ func (s *Service) startCase(ctx context.Context, by Actor, in StartInput, parent
 	if fy == 0 {
 		fy = v.FiscalYear
 	}
-	n, err := s.S.NextCaseNumber(ctx, fmt.Sprintf("%s-%d", v.ProcessKey, fy))
-	if err != nil {
-		return nil, err
+	n := in.number
+	if n == 0 {
+		var err error
+		if n, err = s.S.NextCaseNumber(ctx, fmt.Sprintf("%s-%d", v.ProcessKey, fy)); err != nil {
+			return nil, err
+		}
 	}
 	now := s.Now()
 	c := &store.Case{ID: id.New(), Number: fmt.Sprintf("%s-%d-%05d", strings.ToUpper(v.ProcessKey), fy, n),
@@ -454,7 +472,8 @@ func (s *Service) canWork(by Actor, w *store.Work) bool {
 }
 
 func (s *Service) Inbox(ctx context.Context, by Actor, all bool) ([]*store.Work, error) {
-	f := store.WorkFilter{Status: []store.WorkStatus{store.WorkOpen, store.WorkClaimed}}
+	// most urgent first; the worklist is paged (get-next-work in Phase 3)
+	f := store.WorkFilter{Status: []store.WorkStatus{store.WorkOpen, store.WorkClaimed}, Limit: 200}
 	if !(all && by.Has(RoleSupervisor)) {
 		f.Assignee, f.Roles = by.ID, by.Roles
 	}

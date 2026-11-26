@@ -1,4 +1,5 @@
 "use client";
+import { t } from "@/lib/i18n";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
@@ -26,7 +27,7 @@ export default function CasePage() {
   const [moveTok, setMoveTok] = useState("");
   const [moveTo, setMoveTo] = useState("");
   const [reason, setReason] = useState("");
-  if (!data) return <Page title="Case"><Err e={error} /></Page>;
+  if (!data) return <Page title={t("Case")}><Err e={error} /></Page>;
   const c = data.case;
   const sup = has(s, "cm:supervisor");
   const nodes = Array.from(data.version.bpmn.matchAll(/<(userTask|manualTask|task)\s[^>]*id="([^"]+)"[^>]*name="([^"]*)"/g)).map((m) => ({ value: m[2], label: m[3] || m[2] }));
@@ -40,16 +41,16 @@ export default function CasePage() {
         <div key={i.id} className="err">Incident at {i.nodeName}: {i.message} · <Link href="/incidents">Resolve</Link></div>
       ))}
       <section className="card">
-        <h3>Open work</h3>
+        <h3>{t("Open work")}</h3>
         {open.length ? (
           <table className="tbl">
-            <thead><tr><th>Step</th><th>Role</th><th>Assignee</th><th>Due</th><th /></tr></thead>
+            <thead><tr><th>{t("Step")}</th><th>{t("Role")}</th><th>{t("Assignee")}</th><th>{t("Due")}</th><th /></tr></thead>
             <tbody>
               {open.map((w) => (
                 <tr key={w.id} className={overdue(w.dueAt) ? "late" : ""}>
                   <td><Link href={`/work/${w.id}`}>{w.name}</Link>{loopLabel(w.input)}</td>
                   <td>{w.role}</td><td>{w.assignee || "-"}</td><td className="nw">{dt(w.dueAt)}</td>
-                  <td className="nw">{sup && <button className="link" onClick={() => { setMoveTok(w.tokenId); setMoveTo(""); }}>Move step</button>}</td>
+                  <td className="nw">{sup && <button className="link" onClick={() => { setMoveTok(w.tokenId); setMoveTo(""); }}>{t("Move step")}</button>}</td>
                 </tr>
               ))}
             </tbody>
@@ -57,11 +58,11 @@ export default function CasePage() {
         ) : <div className="muted">-</div>}
         {sup && moveTok && (
           <div className="row3 mt">
-            <Dropdown placeholder="Target step" value={moveTo} onChange={setMoveTo} options={nodes} />
-            <input placeholder="Reason" value={reason} onChange={(e) => setReason(e.target.value)} />
+            <Dropdown placeholder={t("Target step")} value={moveTo} onChange={setMoveTo} options={nodes} />
+            <input placeholder={t("Reason")} value={reason} onChange={(e) => setReason(e.target.value)} />
             <div>
-              <button className="btn" disabled={!moveTo} onClick={() => act(api.post(`/api/cases/${c.id}/move`, { token: moveTok, to: moveTo, reason })).then(() => setMoveTok(""))}>Move</button>
-              <button className="link" onClick={() => setMoveTok("")}>Cancel</button>
+              <button className="btn" disabled={!moveTo} onClick={() => act(api.post(`/api/cases/${c.id}/move`, { token: moveTok, to: moveTo, reason })).then(() => setMoveTok(""))}>{t("Move")}</button>
+              <button className="link" onClick={() => setMoveTok("")}>{t("Cancel")}</button>
             </div>
           </div>
         )}
@@ -69,7 +70,7 @@ export default function CasePage() {
           <div className="bar"><button className="btn-o danger" onClick={() => {
             const why = prompt("Reason for cancelling");
             if (why) act(api.post(`/api/cases/${c.id}/cancel`, { reason: why }));
-          }}>Cancel case</button></div>
+          }}>{t("Cancel case")}</button></div>
         )}
       </section>
       <ScreenRenderer screen={screen} ctx={{ c, version: data.version, audit: data.audit, children: data.children }} />

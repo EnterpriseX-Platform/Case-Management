@@ -1,4 +1,5 @@
 "use client";
+import { t } from "@/lib/i18n";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, Audit, Case, Form, Screen, Version, Work } from "@/lib/api";
@@ -60,9 +61,9 @@ export default function TaskPage() {
       <div>
         <h3>{w.name}</h3>
         {w.embed ? <iframe className="ext" src={src} />
-          : <a className="btn" href={src} target="_blank" rel="noreferrer">Open external screen</a>}
-        <div className="muted small">This step completes when the external system calls back</div>
-        {!done && <div className="bar"><button className="btn-s" onClick={reload}>Refresh status</button></div>}
+          : <a className="btn" href={src} target="_blank" rel="noreferrer">{t("Open external screen")}</a>}
+        <div className="muted small">{t("This step completes when the external system calls back")}</div>
+        {!done && <div className="bar"><button className="btn-s" onClick={reload}>{t("Refresh status")}</button></div>}
       </div>
     );
   } else {
@@ -70,12 +71,12 @@ export default function TaskPage() {
       <div>
         <h3>{w.name}</h3>
         {data.form ? <FormRenderer fields={fields} data={d} onChange={setD} readOnly={done} errors={errs} />
-          : <div className="muted">This step has no form</div>}
+          : <div className="muted">{t("This step has no form")}</div>}
         <Err e={e} />
         {!done && (
           <div className="bar">
             <button className="btn" disabled={busy} onClick={submit}>{w.ui === "none" ? "Mark as done" : "Submit"}</button>
-            {!mine && !w.assignee && <button className="btn-o" onClick={() => api.post(`/api/work/${w.id}/claim`).then(reload).catch((x) => setE(x.message))}>Claim</button>}
+            {!mine && !w.assignee && <button className="btn-o" onClick={() => api.post(`/api/work/${w.id}/claim`).then(reload).catch((x) => setE(x.message))}>{t("Claim")}</button>}
           </div>
         )}
       </div>

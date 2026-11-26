@@ -232,6 +232,9 @@ func (m *Memory) ListWork(_ context.Context, f WorkFilter) ([]*Work, error) {
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.Before(out[j].CreatedAt) })
+	if f.Limit > 0 && len(out) > f.Limit {
+		out = out[:f.Limit]
+	}
 	return out, nil
 }
 

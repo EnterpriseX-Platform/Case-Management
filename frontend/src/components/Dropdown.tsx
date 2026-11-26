@@ -1,6 +1,7 @@
 "use client";
 // Custom dropdown (no native <select>): searchable, keyboard friendly,
 // single or multiple selection.
+import { t } from "@/lib/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 export type Option = { value: string; label: string; hint?: string };
@@ -51,7 +52,7 @@ export default function Dropdown({ options, value, onChange, multiple, placehold
       </button>
       {open && (
         <div className="dd-pop" role="listbox">
-          <input autoFocus className="dd-search" placeholder="Search" value={q}
+          <input autoFocus className="dd-search" placeholder={t("Search")} value={q}
             onChange={(e) => { setQ(e.target.value); setHi(0); }}
             onKeyDown={(e) => {
               if (e.key === "ArrowDown") setHi(Math.min(hi + 1, list.length - 1));
@@ -64,7 +65,7 @@ export default function Dropdown({ options, value, onChange, multiple, placehold
             }} />
           <div className="dd-list">
             {!multiple && sel.length > 0 && (
-              <div className="dd-opt muted" onMouseDown={() => { onChange(""); setOpen(false); }}>— None —</div>
+              <div className="dd-opt muted" onMouseDown={() => { onChange(""); setOpen(false); }}>{t("— None —")}</div>
             )}
             {list.map((o, i) => (
               <div key={o.value} className={"dd-opt" + (i === hi ? " hi" : "") + (sel.includes(o.value) ? " on" : "")}
@@ -77,7 +78,7 @@ export default function Dropdown({ options, value, onChange, multiple, placehold
             {!list.length && allowCustom && q && (
               <div className="dd-opt" onMouseDown={() => pick(q)}>Use “{q}”</div>
             )}
-            {!list.length && !(allowCustom && q) && <div className="dd-empty muted">No results</div>}
+            {!list.length && !(allowCustom && q) && <div className="dd-empty muted">{t("No results")}</div>}
           </div>
         </div>
       )}

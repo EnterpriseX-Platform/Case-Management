@@ -234,10 +234,11 @@ func TestConcurrentCompleteSameWork(t *testing.T) {
 // Many different cases progressing in parallel never lose updates.
 func TestParallelCasesThroughput(t *testing.T) {
 	s, ctx, _ := opsSetup(t, &flaky{})
-	const N = 40
+	const N = 200
 	var wg sync.WaitGroup
 	errs := make(chan error, N)
 	start := time.Now()
+	steps0 := app.Metrics.Steps.Load()
 	for i := 0; i < N; i++ {
 		wg.Add(1)
 		go func(i int) {
@@ -279,5 +280,7 @@ func TestParallelCasesThroughput(t *testing.T) {
 	if waiting != N {
 		t.Fatalf("%d of %d cases reached the wait step", waiting, N)
 	}
-	t.Logf("%d cases × (start + complete + job) in %v", N, time.Since(start))
+	el := time.Since(start)
+	steps := app.Metrics.Steps.Load() - steps0
+	t.Logf("%d cases × (start + complete + job) in %v · %d steps · %.0f steps/s", N, el, steps, float64(steps)/el.Seconds())
 }

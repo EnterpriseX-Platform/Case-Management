@@ -237,7 +237,7 @@ func (p *Postgres) ListWork(ctx context.Context, f WorkFilter) ([]*Work, error) 
 		AND ($2='' OR case_id=$2)
 		AND (cardinality($3::text[])=0 OR status=ANY($3))
 		AND ($4 OR ($5<>'' AND assignee=$5) OR (assignee IS NULL AND ($6 OR role=ANY($7))))
-		ORDER BY created_at`, p.Tenant, f.CaseID, st, all, f.Assignee, star, f.Roles)
+		ORDER BY due_at NULLS LAST, created_at LIMIT NULLIF($8,0)`, p.Tenant, f.CaseID, st, all, f.Assignee, star, f.Roles, f.Limit)
 }
 
 func (p *Postgres) PutTimer(ctx context.Context, t *engine.Timer) error {

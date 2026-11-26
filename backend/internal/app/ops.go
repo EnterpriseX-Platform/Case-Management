@@ -66,6 +66,7 @@ func (s *Service) applyOps(ctx context.Context, c *store.Case, p *bpmn.Process, 
 		if err := s.S.PutIncident(ctx, rec); err != nil {
 			return err
 		}
+		c.Incidents++
 		Metrics.Incidents.Add(1)
 	}
 	return nil
@@ -87,16 +88,29 @@ func (s *Service) persist(ctx context.Context, c *store.Case, p *bpmn.Process) e
 		}
 		in.History = nil
 	}
+	var open []*store.IncidentRec
+	if c.Incidents > 0 {
+		var err error
+		if open, err = s.S.ListIncidents(ctx, store.IncidentOpen, c.ID); err != nil {
+			return err
+		}
+		c.Incidents = 0
+		for _, inc := range open {
+			if t := findToken(in, inc.TokenID); t != nil && t.Wait == engine.WaitIncident {
+				c.Incidents++
+			}
+		}
+	}
 	if err := s.S.PutCase(ctx, c); err != nil {
 		return err
 	}
-	if err := s.S.ReplaceSubscriptions(ctx, c.ID, subscriptions(c, p)); err != nil {
-		return err
+	subs := subscriptions(c, p)
+	if len(subs) > 0 || c.Subscribed {
+		if err := s.S.ReplaceSubscriptions(ctx, c.ID, subs); err != nil {
+			return err
+		}
 	}
-	open, err := s.S.ListIncidents(ctx, store.IncidentOpen, c.ID)
-	if err != nil {
-		return err
-	}
+	c.Subscribed = len(subs) > 0
 	for _, inc := range open {
 		if t := findToken(in, inc.TokenID); t == nil || t.Wait != engine.WaitIncident {
 			now := s.Now()

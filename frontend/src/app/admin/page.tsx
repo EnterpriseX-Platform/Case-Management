@@ -1,6 +1,7 @@
 "use client";
 // Import hub: BPMN (any modeller), solution pack (.cmpack/.zip), form JSON,
 // cases / master data (CSV, XLSX). Always previews before committing.
+import { t } from "@/lib/i18n";
 import { useState } from "react";
 import { api, ProcessDef } from "@/lib/api";
 import { dt } from "@/lib/format";
@@ -42,44 +43,44 @@ export default function Import() {
   };
   const isCases = kind === "cases" || /\.(csv|xlsx)$/i.test(file?.name ?? "");
   return (
-    <Page title="Import">
+    <Page title={t("Import")}>
       <div className="card">
         <div className="row3">
-          <Field label="Source type"><Dropdown options={KINDS} value={kind} onChange={setKind} /></Field>
+          <Field label={t("Source type")}><Dropdown options={KINDS} value={kind} onChange={setKind} /></Field>
           <Field label={isCases ? "Target case type" : "Case type key (optional)"}>
             <Dropdown allowCustom options={(procs ?? []).map((x) => ({ value: x.key, label: x.name }))} value={key} onChange={setKey} />
           </Field>
-          <Field label="Fiscal year"><input inputMode="numeric" value={fy} onChange={(x) => setFy(x.target.value)} /></Field>
+          <Field label={t("Fiscal year")}><input inputMode="numeric" value={fy} onChange={(x) => setFy(x.target.value)} /></Field>
         </div>
         <DropZone accept=".bpmn,.xml,.zip,.cmpack,.json,.csv,.xlsx" onFiles={(f) => { setFile(f[0]); setP(undefined); }} />
-        <div className="bar"><button className="btn-o" disabled={!file} onClick={() => send(false)}>Preview import</button></div>
+        <div className="bar"><button className="btn-o" disabled={!file} onClick={() => send(false)}>{t("Preview import")}</button></div>
         <Err e={e} />{msg && <div className="ok">{msg}</div>}
         {p && (
           <div className="mt">
-            <h3>Preview result</h3>
+            <h3>{t("Preview result")}</h3>
             <table className="tbl"><tbody>
               <tr><td>Case types / flows</td><td>{(p.summary.processes ?? []).join(", ") || "-"}</td></tr>
-              <tr><td>Forms</td><td>{p.summary.forms}</td></tr>
-              <tr><td>Screens</td><td>{p.summary.screens}</td></tr>
-              <tr><td>Cases to create</td><td>{p.summary.cases}</td></tr>
+              <tr><td>{t("Forms")}</td><td>{p.summary.forms}</td></tr>
+              <tr><td>{t("Screens")}</td><td>{p.summary.screens}</td></tr>
+              <tr><td>{t("Cases to create")}</td><td>{p.summary.cases}</td></tr>
             </tbody></table>
             {(p.warnings ?? []).map((w) => <div key={w} className="warn">{w}</div>)}
             {p.bundle?.cases?.length > 0 && (
               <table className="tbl mt">
-                <thead><tr><th>#</th><th>Title</th><th>Fiscal year</th><th>Data</th></tr></thead>
+                <thead><tr><th>#</th><th>{t("Title")}</th><th>{t("Fiscal year")}</th><th>{t("Data")}</th></tr></thead>
                 <tbody>{p.bundle.cases.slice(0, 20).map((c: any, i: number) => (
                   <tr key={i}><td>{i + 1}</td><td>{c.title}</td><td>{c.fiscalYear ? c.fiscalYear : "-"}</td><td className="small">{JSON.stringify(c.vars)}</td></tr>
                 ))}</tbody>
               </table>
             )}
-            <div className="bar"><button className="btn" onClick={() => send(true)}>Import</button></div>
+            <div className="bar"><button className="btn" onClick={() => send(true)}>{t("Import")}</button></div>
           </div>
         )}
       </div>
       <section className="card mt">
-        <h3>Import history</h3>
+        <h3>{t("Import history")}</h3>
         <table className="tbl">
-          <thead><tr><th>Time</th><th>File</th><th>Result</th><th>Summary</th><th>Imported by</th></tr></thead>
+          <thead><tr><th>{t("Time")}</th><th>File</th><th>{t("Result")}</th><th>{t("Summary")}</th><th>{t("Imported by")}</th></tr></thead>
           <tbody>{(jobs ?? []).map((j) => (
             <tr key={j.id}><td className="nw">{dt(j.createdAt)}</td><td>{j.fileName}</td><td>{j.status === "committed" ? "Succeeded" : "Failed"}</td>
               <td className="small">{j.issues?.join("; ") || `flow ${j.summary?.processes?.length ?? 0} · Forms ${j.summary?.forms ?? 0} · Case ${j.summary?.casesCreated ?? 0}`}</td><td>{j.createdBy}</td></tr>

@@ -1,4 +1,5 @@
 "use client";
+import { t } from "@/lib/i18n";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -15,11 +16,11 @@ type Diff = { added: Ch[]; removed: Ch[]; changed: Ch[] };
 type Ch = { id: string; name: string; type: string; fields?: string[] };
 
 const actions: Record<string, { a: string; label: string; role: string }[]> = {
-  draft: [{ a: "submit", label: "Submit for review", role: "cm:designer" }],
-  in_review: [{ a: "approve", label: "Approve", role: "cm:approver" }, { a: "reject", label: "Reject", role: "cm:approver" }],
-  approved: [{ a: "publish", label: "Publish", role: "cm:approver" }],
-  published: [{ a: "deprecate", label: "Deprecate", role: "cm:approver" }],
-  deprecated: [{ a: "archive", label: "Archive", role: "cm:admin" }],
+  draft: [{ a: "submit", label: t("Submit for review"), role: "cm:designer" }],
+  in_review: [{ a: "approve", label: t("Approve"), role: "cm:approver" }, { a: "reject", label: t("Reject"), role: "cm:approver" }],
+  approved: [{ a: "publish", label: t("Publish"), role: "cm:approver" }],
+  published: [{ a: "deprecate", label: t("Deprecate"), role: "cm:approver" }],
+  deprecated: [{ a: "archive", label: t("Archive"), role: "cm:admin" }],
 };
 
 export default function Versions() {
@@ -44,11 +45,11 @@ export default function Versions() {
   };
 
   return (
-    <Page title={p?.name ?? key} actions={has(s, "cm:designer") && <button className="btn" onClick={() => newDraft(EMPTY, "")}>New version</button>}>
+    <Page title={p?.name ?? key} actions={has(s, "cm:designer") && <button className="btn" onClick={() => newDraft(EMPTY, "")}>{t("New version")}</button>}>
       <Err e={error ?? e} />
       {warn.map((w) => <div key={w} className="warn">{w}</div>)}
       <table className="tbl">
-        <thead><tr><th>Version</th><th>Fiscal year</th><th>Status</th><th>Note</th><th>Author</th><th>Approver</th><th>Published</th><th /></tr></thead>
+        <thead><tr><th>{t("Version")}</th><th>{t("Fiscal year")}</th><th>{t("Status")}</th><th>{t("Note")}</th><th>{t("Author")}</th><th>{t("Approver")}</th><th>{t("Published")}</th><th /></tr></thead>
         <tbody>
           {(data ?? []).map((v) => (
             <tr key={v.id}>
@@ -57,7 +58,7 @@ export default function Versions() {
               <td><Status s={v.status} /></td>
               <td>{v.note}</td><td>{v.createdBy}</td><td>{v.approvedBy ?? "-"}</td><td className="nw">{dt(v.publishedAt)}</td>
               <td className="nw">
-                <Link className="link" href={`/designer/versions/${v.id}/mapping`}>Step screens</Link>
+                <Link className="link" href={`/designer/versions/${v.id}/mapping`}>{t("Step screens")}</Link>
                 {(actions[v.status] ?? []).filter((x) => has(s, x.role)).map((x) => (
                   <button key={x.a} className="link" onClick={() => act(api.post(`/api/versions/${v.id}/${x.a}`))}>{x.label}</button>
                 ))}
@@ -65,7 +66,7 @@ export default function Versions() {
                   <button className="link" onClick={() => {
                     const y = prompt("Fiscal year of the new version", v.fiscalYear ? String(v.fiscalYear + 1) : "");
                     if (y) act(api.post<Version>(`/api/versions/${v.id}/clone`, { fiscalYear: Number(y) }).then((n) => r.push(`/designer/versions/${n.id}`)));
-                  }}>Copy for next year</button>
+                  }}>{t("Copy for next year")}</button>
                 )}
               </td>
             </tr>
@@ -75,25 +76,25 @@ export default function Versions() {
 
       {has(s, "cm:designer") && (
         <section className="card mt">
-          <h3>Import BPMN as a new version</h3>
+          <h3>{t("Import BPMN as a new version")}</h3>
           <DropZone accept=".bpmn,.xml" onFiles={async (fs) => newDraft(await fs[0].text(), "Imported from " + fs[0].name)} />
         </section>
       )}
 
       <section className="card mt">
-        <h3>Compare versions</h3>
+        <h3>{t("Compare versions")}</h3>
         <div className="row3">
-          <Dropdown placeholder="From" value={a} onChange={setA} options={opts} />
-          <Dropdown placeholder="To" value={b} onChange={setB} options={opts} />
-          <div><button className="btn-o" disabled={!a || !b} onClick={() => api.get<Diff>(`/api/versions/${a}/diff?to=${b}`).then(setDiff).catch((x) => setE(x.message))}>Compare</button></div>
+          <Dropdown placeholder={t("From")} value={a} onChange={setA} options={opts} />
+          <Dropdown placeholder={t("To")} value={b} onChange={setB} options={opts} />
+          <div><button className="btn-o" disabled={!a || !b} onClick={() => api.get<Diff>(`/api/versions/${a}/diff?to=${b}`).then(setDiff).catch((x) => setE(x.message))}>{t("Compare")}</button></div>
         </div>
         {diff && (
           <table className="tbl mt">
-            <thead><tr><th>Change</th><th>Step</th><th>Type</th><th>Details</th></tr></thead>
+            <thead><tr><th>{t("Change")}</th><th>{t("Step")}</th><th>{t("Type")}</th><th>{t("Details")}</th></tr></thead>
             <tbody>
-              {diff.added.map((c) => <tr key={"a" + c.id} className="d-add"><td>Added</td><td>{c.name || c.id}</td><td>{c.type}</td><td /></tr>)}
-              {diff.removed.map((c) => <tr key={"r" + c.id} className="d-del"><td>Remove</td><td>{c.name || c.id}</td><td>{c.type}</td><td /></tr>)}
-              {diff.changed.map((c) => <tr key={"c" + c.id} className="d-chg"><td>Changed</td><td>{c.name || c.id}</td><td>{c.type}</td><td>{c.fields?.join(", ")}</td></tr>)}
+              {diff.added.map((c) => <tr key={"a" + c.id} className="d-add"><td>{t("Added")}</td><td>{c.name || c.id}</td><td>{c.type}</td><td /></tr>)}
+              {diff.removed.map((c) => <tr key={"r" + c.id} className="d-del"><td>{t("Remove")}</td><td>{c.name || c.id}</td><td>{c.type}</td><td /></tr>)}
+              {diff.changed.map((c) => <tr key={"c" + c.id} className="d-chg"><td>{t("Changed")}</td><td>{c.name || c.id}</td><td>{c.type}</td><td>{c.fields?.join(", ")}</td></tr>)}
             </tbody>
           </table>
         )}
