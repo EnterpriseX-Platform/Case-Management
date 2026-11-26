@@ -6,10 +6,14 @@
 //	CALLBACK_SECRET  HMAC secret for external-screen callbacks (required with a database)
 //	PUBLIC_URL     public base URL of this API (for callback links)
 //	SEED_PACK      path to a solution pack (.zip) imported at start when the store is empty
+//	MODE           all (default) | api | worker — run API and/or background workers;
+//	               scale each independently (any number of replicas of each)
+//	WORKER_ID      worker name used for job leases (default: hostname-pid)
 package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -37,7 +41,7 @@ func main() {
 			slog.Error("database", "err", err)
 			os.Exit(1)
 		}
-		if err := pg.Migrate(ctx, migrations.Init); err != nil {
+		if err := pg.Migrate(ctx, migrations.All()...); err != nil {
 			slog.Error("migrate", "err", err)
 			os.Exit(1)
 		}
@@ -64,22 +68,28 @@ func main() {
 		}
 	}
 
-	go func() { // timer worker
-		t := time.NewTicker(10 * time.Second)
-		defer t.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-t.C:
-				if n, err := svc.RunTimers(ctx); err != nil {
-					slog.Error("timers", "err", err)
-				} else if n > 0 {
-					slog.Info("timers fired", "n", n)
-				}
-			}
+	connector.KeyFunc = app.IdempotencyKey
+	mode := os.Getenv("MODE")
+	if mode == "" {
+		mode = "all"
+	}
+	if mode == "all" || mode == "worker" {
+		worker := os.Getenv("WORKER_ID")
+		if worker == "" {
+			h, _ := os.Hostname()
+			worker = fmt.Sprintf("%s-%d", h, os.Getpid())
 		}
-	}()
+		go loop(ctx, time.Second, "jobs", func() (int, error) { return svc.RunJobs(ctx, worker, 50) })
+		go loop(ctx, 5*time.Second, "timers", func() (int, error) { return svc.RunTimers(ctx) })
+		slog.Info("worker started", "id", worker)
+	}
+	if mode == "worker" {
+		// workers still expose health and metrics
+		srv := &http.Server{Addr: envOr("ADDR", ":8081"), Handler: api.OpsHandler(), ReadHeaderTimeout: 10 * time.Second}
+		go func() { <-ctx.Done(); _ = srv.Shutdown(context.Background()) }()
+		_ = srv.ListenAndServe()
+		return
+	}
 
 	addr := os.Getenv("ADDR")
 	if addr == "" {
@@ -98,6 +108,33 @@ func main() {
 		slog.Error("server", "err", err)
 		os.Exit(1)
 	}
+}
+
+// loop polls fn; when it found work it runs again immediately.
+func loop(ctx context.Context, every time.Duration, name string, fn func() (int, error)) {
+	t := time.NewTicker(every)
+	defer t.Stop()
+	for {
+		n, err := fn()
+		if err != nil {
+			slog.Error(name, "err", err)
+		}
+		if n > 0 && err == nil {
+			continue
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
+}
+
+func envOr(k, d string) string {
+	if v := os.Getenv(k); v != "" {
+		return v
+	}
+	return d
 }
 
 func seed(ctx context.Context, svc *app.Service, path string) error {

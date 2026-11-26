@@ -1,0 +1,47 @@
+# Local / evaluation stack. API and workers scale independently:
+#   docker compose up -d --scale worker=3
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: cm
+      POSTGRES_USER: cm
+      POSTGRES_PASSWORD: cm-local-only
+    ports: ["55432:5432"]
+    volumes: [db:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cm -d cm"]
+      interval: 3s
+      retries: 20
+
+  api:
+    build: ./backend
+    environment: &cm-env
+      DATABASE_URL: postgres://cm:cm-local-only@db:5432/cm?sslmode=disable
+      CALLBACK_SECRET: change-me-local-only
+      PUBLIC_URL: http://localhost:8080
+      SEED_PACK: /packs/purchase-request.cmpack
+      MODE: api
+    volumes: ["./packs:/packs:ro"]
+    ports: ["8080:8080"]
+    depends_on:
+      db: { condition: service_healthy }
+
+  worker:
+    build: ./backend
+    environment:
+      <<: *cm-env
+      MODE: worker
+      SEED_PACK: ""
+    depends_on:
+      db: { condition: service_healthy }
+
+  web:
+    build: ./frontend
+    environment:
+      API_URL: http://api:8080
+    ports: ["3000:3000"]
+    depends_on: [api]
+
+volumes:
+  db: {}

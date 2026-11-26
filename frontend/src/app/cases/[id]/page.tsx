@@ -10,7 +10,7 @@ import Dropdown from "@/components/Dropdown";
 import ScreenRenderer from "@/components/ScreenRenderer";
 import { Err, Page, Status } from "@/components/ui";
 
-type CaseView = { case: Case; work: Work[]; audit: Audit[]; version: Version; children: Case[] };
+type CaseView = { case: Case; work: Work[]; audit: Audit[]; version: Version; children: Case[]; incidents?: { id: string; nodeName: string; message: string; status: string }[] };
 
 const OVERVIEW: Screen = { key: "_case", name: "", kind: "case", layout: { rows: [
   { cols: [{ width: 4, widget: "caseInfo" }, { width: 8, widget: "flow" }] },
@@ -36,6 +36,9 @@ export default function CasePage() {
   return (
     <Page title={`${c.number} · ${c.title}`} actions={<Status s={c.status} />}>
       <Err e={e ?? c.instance.error} />
+      {(data.incidents ?? []).filter((i) => i.status === "open").map((i) => (
+        <div key={i.id} className="err">Incident at {i.nodeName}: {i.message} · <Link href="/incidents">Resolve</Link></div>
+      ))}
       <section className="card">
         <h3>Open work</h3>
         {open.length ? (

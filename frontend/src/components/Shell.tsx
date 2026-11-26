@@ -14,6 +14,7 @@ const groups: { title: string; items: Item[] }[] = [
   ] },
   { title: "Monitoring", items: [
     { href: "/supervisor", label: "Overview & queues", role: "cm:supervisor" },
+    { href: "/incidents", label: "Incidents", role: "cm:supervisor" },
   ] },
   { title: "Design", items: [
     { href: "/designer", label: "Case types & flows", role: "cm:designer" },

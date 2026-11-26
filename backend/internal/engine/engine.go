@@ -158,8 +158,9 @@ func (r *run) drain() error {
 				}
 				continue
 			}
-			r.in.Status, r.in.Error = Failed, err.Error()
-			return err
+			// Technical failure: park the token as an incident instead of
+			// failing the whole case. Operators retry, fix data or move it.
+			r.raiseIncident(t, err)
 		}
 	}
 	r.evalConditions()
@@ -232,24 +233,23 @@ func (r *run) enter(t *Token) error {
 		r.addWaiting(t, WaitMessage)
 		r.armBoundaries(t, n)
 
-	case bpmn.ServiceTask, bpmn.SendTask:
-		out, err := r.e.H.Service(r.ctx, n, r.vars(t))
-		if err != nil {
-			return err
-		}
-		r.merge(out)
+	case bpmn.ServiceTask, bpmn.SendTask, bpmn.BusinessRuleTask:
 		if n.Type == bpmn.SendTask {
 			r.fx.Outbound = append(r.fx.Outbound, Outbound{Kind: "message", Name: firstNonEmpty(n.MessageRef, n.Ext["message"], n.Name), Vars: r.vars(t)})
 		}
-		r.complete(t)
-
-	case bpmn.BusinessRuleTask:
-		out, err := r.e.H.Rule(r.ctx, n, r.vars(t))
-		if err != nil {
-			return err
+		kind := JobService
+		if n.Type == bpmn.BusinessRuleTask {
+			kind = JobRule
 		}
-		r.merge(out)
-		r.complete(t)
+		if n.Ext["url"] == "" && n.Ext["rule"] == "" && n.Ext["connector"] == "" {
+			r.complete(t) // nothing to call: pass-through step
+			return nil
+		}
+		// External work never runs inside the engine step: it becomes a job
+		// executed (and retried) by a worker, which reports back.
+		r.addWaiting(t, WaitJob)
+		r.armBoundaries(t, n)
+		r.fx.NewJobs = append(r.fx.NewJobs, Job{InstanceID: r.in.ID, TokenID: t.ID, Node: n.ID, Kind: kind, Vars: copyVars(r.vars(t))})
 
 	case bpmn.ScriptTask:
 		out, err := runScript(n.Script, r.vars(t))
@@ -836,7 +836,68 @@ func (r *run) due(expr string) (time.Time, error) {
 	return r.e.Now().Add(d), nil
 }
 
+func (r *run) raiseIncident(t *Token, err error) {
+	t.Error = err.Error()
+	r.addWaiting(t, WaitIncident)
+	r.log(t.Node, "incident", t.ID)
+	r.fx.Incidents = append(r.fx.Incidents, Incident{InstanceID: r.in.ID, TokenID: t.ID, Node: t.Node, Message: err.Error()})
+}
+
 // ---------- external triggers ----------
+
+// CompleteJob reports a successful job (service / rule task) with its output.
+func (e *Engine) CompleteJob(ctx context.Context, p *bpmn.Process, in *Instance, tokenID string, out map[string]any) (*Effects, error) {
+	r, err := e.load(ctx, p, in, "system:job")
+	if err != nil {
+		return nil, err
+	}
+	t := r.findToken(tokenID)
+	if t == nil || t.Wait != WaitJob {
+		return nil, ErrNotWaiting
+	}
+	r.merge(out)
+	r.complete(t)
+	return r.fx, r.drain()
+}
+
+// FailJob reports a job that gave up. A *BPMNError is thrown into the model
+// (catchable by boundary events); anything else becomes an incident.
+func (e *Engine) FailJob(ctx context.Context, p *bpmn.Process, in *Instance, tokenID string, jobErr error) (*Effects, error) {
+	r, err := e.load(ctx, p, in, "system:job")
+	if err != nil {
+		return nil, err
+	}
+	t := r.findToken(tokenID)
+	if t == nil || t.Wait != WaitJob {
+		return nil, ErrNotWaiting
+	}
+	var be *BPMNError
+	if errors.As(jobErr, &be) {
+		r.disarm(t)
+		if err := r.throwError(t, be.Code, be.Message); err != nil {
+			return nil, err
+		}
+		return r.fx, r.drain()
+	}
+	r.raiseIncident(t, jobErr)
+	return r.fx, nil
+}
+
+// Retry re-executes the step of a token parked as an incident.
+func (e *Engine) Retry(ctx context.Context, p *bpmn.Process, in *Instance, tokenID, by string) (*Effects, error) {
+	r, err := e.load(ctx, p, in, by)
+	if err != nil {
+		return nil, err
+	}
+	t := r.findToken(tokenID)
+	if t == nil || t.Wait != WaitIncident {
+		return nil, ErrNotWaiting
+	}
+	r.remove(t)
+	t.Wait, t.Error = WaitNone, ""
+	r.q = append(r.q, t)
+	return r.fx, r.drain()
+}
 
 func (e *Engine) load(ctx context.Context, p *bpmn.Process, in *Instance, by string) (*run, error) {
 	if in.Status != Running {

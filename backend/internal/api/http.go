@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/EnterpriseX-Platform/Case-Management/backend/internal/app"
@@ -20,6 +21,8 @@ import (
 	"github.com/EnterpriseX-Platform/Case-Management/backend/internal/importer"
 	"github.com/EnterpriseX-Platform/Case-Management/backend/internal/store"
 )
+
+var httpRequests atomic.Int64
 
 type Server struct {
 	S *app.Service
@@ -224,7 +227,12 @@ func (s *Server) Handler() http.Handler {
 				kids = append(kids, k)
 			}
 		}
-		return map[string]any{"case": c, "work": work, "audit": audit, "version": v, "children": kids}, nil
+		ev, _ := s.S.S.ListEvents(ctx, c.ID, 5000)
+		for _, e := range ev {
+			c.Instance.History = append(c.Instance.History, engine.HistoryEntry{At: e.At, Node: e.Node, Event: e.Type, Token: e.Token, By: e.By})
+		}
+		inc, _ := s.S.S.ListIncidents(ctx, "", c.ID)
+		return map[string]any{"case": c, "work": work, "audit": audit, "version": v, "children": kids, "incidents": inc}, nil
 	})
 	h("POST /api/cases/{id}/cancel", func(w http.ResponseWriter, r *http.Request) (any, error) {
 		var in struct{ Reason string }
@@ -346,6 +354,38 @@ func (s *Server) Handler() http.Handler {
 	})
 
 	m.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok")) })
+	m.HandleFunc("GET /metrics", metrics)
+
+	// operations: incidents, jobs, event log
+	h("GET /api/incidents", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		if !actor(r).Has(app.RoleSupervisor) {
+			return nil, app.ErrForbidden
+		}
+		st := store.IncidentStatus(r.URL.Query().Get("status"))
+		return s.S.S.ListIncidents(r.Context(), st, r.URL.Query().Get("case"))
+	})
+	h("POST /api/incidents/{id}/{action}", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		var in struct {
+			To   string         `json:"to"`
+			Vars map[string]any `json:"vars"`
+			Note string         `json:"note"`
+		}
+		_ = decode(r, &in)
+		return s.S.ResolveIncident(r.Context(), actor(r), r.PathValue("id"), r.PathValue("action"), in.To, in.Vars, in.Note)
+	})
+	h("POST /api/incidents-retry-all", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		n, err := s.S.RetryAll(r.Context(), actor(r))
+		return map[string]any{"retried": n}, err
+	})
+	h("GET /api/jobs", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		if !actor(r).Has(app.RoleSupervisor) {
+			return nil, app.ErrForbidden
+		}
+		return s.S.S.ListJobs(r.Context(), r.URL.Query().Get("case"))
+	})
+	h("GET /api/cases/{id}/events", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		return s.S.S.ListEvents(r.Context(), r.PathValue("id"), 5000)
+	})
 
 	// external screens: no user session, authorised by signed token
 	callback := func(w http.ResponseWriter, r *http.Request) {
@@ -384,6 +424,7 @@ func (s *Server) middleware(m *http.ServeMux, callback http.HandlerFunc) http.Ha
 			}
 			r = r.WithContext(context.WithValue(r.Context(), ctxKey{}, a))
 		}
+		httpRequests.Add(1)
 		m.ServeHTTP(w, r)
 		slog.Debug("http", "method", r.Method, "path", r.URL.Path, "ms", time.Since(start).Milliseconds())
 	})

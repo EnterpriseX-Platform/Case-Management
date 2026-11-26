@@ -305,3 +305,4 @@ ul { margin: 0; padding-left: 20px; }
   .row2, .row3, .builder { grid-template-columns: 1fr; }
   .login-grid { grid-template-columns: 1fr; }
 }
+.mono { font-family: var(--mono); }

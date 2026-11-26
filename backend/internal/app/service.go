@@ -254,6 +254,9 @@ func (s *Service) applyOnce(ctx context.Context, by Actor, c *store.Case, p *bpm
 			return nil, err
 		}
 	}
+	if err := s.applyOps(ctx, c, p, fx); err != nil {
+		return nil, err
+	}
 
 	binds, err := s.S.GetBindings(ctx, c.VersionID)
 	if err != nil {
@@ -299,7 +302,7 @@ func (s *Service) applyOnce(ctx context.Context, by Actor, c *store.Case, p *bpm
 
 	c.Status = string(in.Status)
 	c.UpdatedAt = now
-	if err := s.S.PutCase(ctx, c); err != nil {
+	if err := s.persist(ctx, c, p); err != nil {
 		return nil, err
 	}
 
@@ -395,14 +398,20 @@ func tokenWaiting(in *engine.Instance, tok string) bool {
 }
 
 // deliver routes thrown messages to related cases (parent, children,
-// related) and signals to every running case.
+// related) and signals to every waiting case, using the subscription index.
 func (s *Service) deliver(ctx context.Context, by Actor, from *store.Case, ob engine.Outbound) error {
-	cases, err := s.S.ListCases(ctx, "", "", 0)
+	subs, err := s.S.FindSubscriptions(ctx, ob.Kind, ob.Name)
 	if err != nil {
 		return err
 	}
-	for _, c := range cases {
-		if c.ID == from.ID || c.Instance == nil || c.Instance.Status != engine.Running {
+	done := map[string]bool{}
+	for _, sub := range subs {
+		if sub.CaseID == from.ID || done[sub.CaseID] {
+			continue
+		}
+		done[sub.CaseID] = true
+		c, err := s.S.GetCase(ctx, sub.CaseID)
+		if err != nil || c.Instance == nil || c.Instance.Status != engine.Running {
 			continue
 		}
 		related := c.ID == from.ParentID || c.ParentID == from.ID || contains(from.RelatedIDs, c.ID) || contains(c.RelatedIDs, from.ID)
@@ -502,7 +511,7 @@ func (s *Service) Reassign(ctx context.Context, by Actor, workID, assignee, role
 // Complete finishes a work item with the submitted form data.
 func (s *Service) Complete(ctx context.Context, by Actor, workID string, data map[string]any) (*store.Case, error) {
 	var out *store.Case
-	err := s.S.Tx(ctx, func(ctx context.Context) error {
+	err := s.tx(ctx, func(ctx context.Context) error {
 		w, err := s.S.GetWork(ctx, workID)
 		if err != nil {
 			return err
@@ -563,7 +572,7 @@ func (s *Service) CompleteByCallback(ctx context.Context, workID, token string, 
 
 func (s *Service) withCase(ctx context.Context, caseID string, fn func(ctx context.Context, c *store.Case, p *bpmn.Process) (*engine.Effects, error), by Actor) (*store.Case, error) {
 	var out *store.Case
-	err := s.S.Tx(ctx, func(ctx context.Context) error {
+	err := s.tx(ctx, func(ctx context.Context) error {
 		c, err := s.S.GetCase(ctx, caseID)
 		if err != nil {
 			return err
@@ -615,12 +624,18 @@ func (s *Service) Message(ctx context.Context, by Actor, caseID, name, correlati
 		}
 		cases = append(cases, c)
 	} else {
-		all, err := s.S.ListCases(ctx, "", "", 0)
+		subs, err := s.S.FindSubscriptions(ctx, "message", name)
 		if err != nil {
 			return 0, err
 		}
-		for _, c := range all {
-			if correlationKey != "" && fmt.Sprint(c.Instance.Vars["correlationKey"]) == correlationKey {
+		seen := map[string]bool{}
+		for _, sub := range subs {
+			if seen[sub.CaseID] {
+				continue
+			}
+			seen[sub.CaseID] = true
+			c, err := s.S.GetCase(ctx, sub.CaseID)
+			if err == nil && (correlationKey == "" || fmt.Sprint(c.Instance.Vars["correlationKey"]) == correlationKey) {
 				cases = append(cases, c)
 			}
 		}
@@ -655,7 +670,7 @@ func (s *Service) RunTimers(ctx context.Context) (int, error) {
 	fired := 0
 	for {
 		var batch int
-		err := s.S.Tx(ctx, func(ctx context.Context) error {
+		err := s.tx(ctx, func(ctx context.Context) error {
 			ts, err := s.S.DueTimers(ctx, s.Now(), 50)
 			if err != nil {
 				return err
@@ -681,6 +696,7 @@ func (s *Service) RunTimers(ctx context.Context) (int, error) {
 					return err
 				}
 				fired++
+				Metrics.TimersFired.Add(1)
 			}
 			return nil
 		})

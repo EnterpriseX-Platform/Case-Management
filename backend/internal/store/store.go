@@ -10,7 +10,11 @@ import (
 	"github.com/EnterpriseX-Platform/Case-Management/backend/internal/engine"
 )
 
-var ErrNotFound = errors.New("not found")
+var (
+	ErrNotFound = errors.New("not found")
+	// ErrStale is returned by PutCase when the case changed since it was read.
+	ErrStale = errors.New("case was changed by someone else")
+)
 
 type VersionStatus string
 
@@ -101,6 +105,7 @@ type Case struct {
 	RelatedIDs []string         `json:"relatedIds,omitempty"`
 	Status     string           `json:"status"`
 	Instance   *engine.Instance `json:"instance"`
+	Revision   int              `json:"revision"` // optimistic lock, bumped by every PutCase
 	CreatedBy  string           `json:"createdBy"`
 	CreatedAt  time.Time        `json:"createdAt"`
 	UpdatedAt  time.Time        `json:"updatedAt"`
@@ -194,6 +199,8 @@ type Store interface {
 
 	PutImport(ctx context.Context, j *ImportJob) error
 	ListImports(ctx context.Context) ([]*ImportJob, error)
+
+	OpsStore
 
 	// Tx runs fn atomically (Memory: global lock; Postgres: transaction).
 	Tx(ctx context.Context, fn func(ctx context.Context) error) error

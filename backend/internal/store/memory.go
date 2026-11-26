@@ -26,6 +26,7 @@ type Memory struct {
 	audit    []*Audit
 	imports  []*ImportJob
 	seq      map[string]int
+	o        *memOps
 }
 
 func NewMemory() *Memory {
@@ -170,6 +171,10 @@ func (m *Memory) ListScreens(context.Context) ([]*Screen, error) {
 func (m *Memory) PutCase(_ context.Context, c *Case) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if old, ok := m.cases[c.ID]; ok && old.Revision != c.Revision {
+		return ErrStale
+	}
+	c.Revision++
 	m.cases[c.ID] = cp(c)
 	return nil
 }
@@ -331,4 +336,157 @@ func (m *Memory) ListImports(context.Context) ([]*ImportJob, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return cp(m.imports), nil
+}
+
+// ---------------------------------------------------------------- ops
+
+type memOps struct {
+	jobs      map[string]*JobRec
+	incidents map[string]*IncidentRec
+	events    []*EventRec
+	subs      map[string][]Subscription
+}
+
+func (m *Memory) ops() *memOps {
+	if m.o == nil {
+		m.o = &memOps{jobs: map[string]*JobRec{}, incidents: map[string]*IncidentRec{}, subs: map[string][]Subscription{}}
+	}
+	return m.o
+}
+
+func (m *Memory) PutJob(_ context.Context, j *JobRec) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.ops().jobs[j.ID] = cp(j)
+	return nil
+}
+func (m *Memory) GetJob(_ context.Context, id string) (*JobRec, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if j, ok := m.ops().jobs[id]; ok {
+		return cp(j), nil
+	}
+	return nil, ErrNotFound
+}
+func (m *Memory) LeaseJobs(_ context.Context, worker string, now time.Time, lease time.Duration, limit int) ([]*JobRec, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []*JobRec
+	for _, j := range m.ops().jobs {
+		if len(out) >= limit {
+			break
+		}
+		free := j.Status == JobPending || (j.Status == JobRunning && j.LeaseUntil != nil && j.LeaseUntil.Before(now))
+		if free && !j.NextRunAt.After(now) {
+			until := now.Add(lease)
+			j.Status, j.LeaseUntil, j.LeasedBy = JobRunning, &until, worker
+			out = append(out, cp(j))
+		}
+	}
+	return out, nil
+}
+func (m *Memory) DeleteJob(_ context.Context, id string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.ops().jobs, id)
+	return nil
+}
+func (m *Memory) DeleteJobsByToken(_ context.Context, iid, tid string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for id, j := range m.ops().jobs {
+		if j.InstanceID == iid && j.TokenID == tid {
+			delete(m.ops().jobs, id)
+		}
+	}
+	return nil
+}
+func (m *Memory) ListJobs(_ context.Context, caseID string) ([]*JobRec, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []*JobRec
+	for _, j := range m.ops().jobs {
+		if caseID == "" || j.CaseID == caseID {
+			out = append(out, cp(j))
+		}
+	}
+	sort.Slice(out, func(a, b int) bool { return out[a].CreatedAt.Before(out[b].CreatedAt) })
+	return out, nil
+}
+
+func (m *Memory) PutIncident(_ context.Context, i *IncidentRec) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.ops().incidents[i.ID] = cp(i)
+	return nil
+}
+func (m *Memory) GetIncident(_ context.Context, id string) (*IncidentRec, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if i, ok := m.ops().incidents[id]; ok {
+		return cp(i), nil
+	}
+	return nil, ErrNotFound
+}
+func (m *Memory) ListIncidents(_ context.Context, st IncidentStatus, caseID string) ([]*IncidentRec, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []*IncidentRec
+	for _, i := range m.ops().incidents {
+		if (st == "" || i.Status == st) && (caseID == "" || i.CaseID == caseID) {
+			out = append(out, cp(i))
+		}
+	}
+	sort.Slice(out, func(a, b int) bool { return out[a].CreatedAt.After(out[b].CreatedAt) })
+	return out, nil
+}
+
+func (m *Memory) AppendEvents(_ context.Context, ev []EventRec) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	o := m.ops()
+	for i := range ev {
+		e := cp(ev[i])
+		e.Seq = int64(len(o.events) + 1)
+		o.events = append(o.events, &e)
+	}
+	return nil
+}
+func (m *Memory) ListEvents(_ context.Context, caseID string, limit int) ([]*EventRec, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []*EventRec
+	for _, e := range m.ops().events {
+		if caseID == "" || e.CaseID == caseID {
+			out = append(out, cp(e))
+		}
+	}
+	if limit > 0 && len(out) > limit {
+		out = out[len(out)-limit:]
+	}
+	return out, nil
+}
+
+func (m *Memory) ReplaceSubscriptions(_ context.Context, caseID string, subs []Subscription) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if len(subs) == 0 {
+		delete(m.ops().subs, caseID)
+	} else {
+		m.ops().subs[caseID] = cp(subs)
+	}
+	return nil
+}
+func (m *Memory) FindSubscriptions(_ context.Context, kind, name string) ([]Subscription, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []Subscription
+	for _, l := range m.ops().subs {
+		for _, s := range l {
+			if s.Kind == kind && s.Name == name {
+				out = append(out, s)
+			}
+		}
+	}
+	return out, nil
 }

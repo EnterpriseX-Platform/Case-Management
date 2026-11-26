@@ -62,6 +62,10 @@ func (h *HTTP) Rule(ctx context.Context, n *bpmn.Node, vars map[string]any) (map
 	return out, nil
 }
 
+// KeyFunc, set by the application, returns the idempotency key of the job
+// being executed; it is sent so remote systems can drop duplicate calls.
+var KeyFunc func(context.Context) string
+
 func (h *HTTP) call(ctx context.Context, method, url, token string, body any) (map[string]any, error) {
 	b, _ := json.Marshal(body)
 	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(b))
@@ -69,6 +73,11 @@ func (h *HTTP) call(ctx context.Context, method, url, token string, body any) (m
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if KeyFunc != nil {
+		if k := KeyFunc(ctx); k != "" {
+			req.Header.Set("Idempotency-Key", k)
+		}
+	}
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}

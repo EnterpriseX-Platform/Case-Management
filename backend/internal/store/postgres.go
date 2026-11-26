@@ -32,10 +32,16 @@ func NewPostgres(ctx context.Context, url, tenant string) (*Postgres, error) {
 	return &Postgres{pool: pool, Tenant: tenant}, nil
 }
 
-func (p *Postgres) Migrate(ctx context.Context, sql string) error {
-	_, err := p.pool.Exec(ctx, sql)
-	return err
+func (p *Postgres) Migrate(ctx context.Context, scripts ...string) error {
+	for _, sql := range scripts {
+		if _, err := p.pool.Exec(ctx, sql); err != nil {
+			return err
+		}
+	}
+	return nil
 }
+
+func (p *Postgres) Close() { p.pool.Close() }
 
 type txKey struct{}
 
@@ -163,11 +169,32 @@ func (p *Postgres) ListScreens(ctx context.Context) ([]*Screen, error) {
 	return many[Screen](ctx, p.q(ctx), `SELECT data FROM cm_screen WHERE tenant_id=$1 ORDER BY key`, p.Tenant)
 }
 
+// PutCase inserts a new case or updates it only if nobody else changed it
+// since it was read (optimistic locking on revision). On success c.Revision
+// is bumped; on a lost race ErrStale is returned.
 func (p *Postgres) PutCase(ctx context.Context, c *Case) error {
-	return p.exec(ctx, `INSERT INTO cm_case(tenant_id,id,number,process_key,version_id,fiscal_year,parent_id,status,created_at,data)
-		VALUES($1,$2,$3,$4,$5,NULLIF($6,0),NULLIF($7,''),$8,$9,$10)
-		ON CONFLICT (tenant_id,id) DO UPDATE SET version_id=EXCLUDED.version_id, status=EXCLUDED.status, data=EXCLUDED.data`,
-		p.Tenant, c.ID, c.Number, c.ProcessKey, c.VersionID, c.FiscalYear, c.ParentID, c.Status, c.CreatedAt, js(c))
+	next := c.Revision + 1
+	c.Revision = next
+	data := js(c)
+	c.Revision = next - 1
+	var tag pgconn.CommandTag
+	var err error
+	if next == 1 {
+		tag, err = p.q(ctx).Exec(ctx, `INSERT INTO cm_case(tenant_id,id,number,process_key,version_id,fiscal_year,parent_id,status,created_at,revision,data)
+			VALUES($1,$2,$3,$4,$5,NULLIF($6,0),NULLIF($7,''),$8,$9,1,$10) ON CONFLICT (tenant_id,id) DO NOTHING`,
+			p.Tenant, c.ID, c.Number, c.ProcessKey, c.VersionID, c.FiscalYear, c.ParentID, c.Status, c.CreatedAt, data)
+	} else {
+		tag, err = p.q(ctx).Exec(ctx, `UPDATE cm_case SET version_id=$3, status=$4, revision=$5, data=$6
+			WHERE tenant_id=$1 AND id=$2 AND revision=$7`, p.Tenant, c.ID, c.VersionID, c.Status, next, data, next-1)
+	}
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrStale
+	}
+	c.Revision = next
+	return nil
 }
 func (p *Postgres) GetCase(ctx context.Context, id string) (*Case, error) {
 	return one[Case](ctx, p.q(ctx), `SELECT data FROM cm_case WHERE tenant_id=$1 AND id=$2`, p.Tenant, id)

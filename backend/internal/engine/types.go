@@ -31,6 +31,8 @@ const (
 	WaitMulti     WaitKind = "multi"     // multi-instance container
 	WaitCall      WaitKind = "call"      // call activity -> child case
 	WaitEventGW   WaitKind = "eventgw"   // event-based gateway
+	WaitJob       WaitKind = "job"       // service / rule task executed by a worker
+	WaitIncident  WaitKind = "incident"  // technical failure, needs an operator
 )
 
 type Token struct {
@@ -48,6 +50,7 @@ type Token struct {
 	Message string `json:"message,omitempty"`
 	Signal  string `json:"signal,omitempty"`
 	Cond    string `json:"cond,omitempty"`
+	Error   string `json:"error,omitempty"` // incident message
 }
 
 // HistoryEntry records the path a case actually walked (for audit & replay).
@@ -123,6 +126,30 @@ type Outbound struct {
 	Vars map[string]any `json:"vars"`
 }
 
+type JobKind string
+
+const (
+	JobService JobKind = "service"
+	JobRule    JobKind = "rule"
+)
+
+// Job is external work requested by the engine (connector call, rule).
+type Job struct {
+	InstanceID string         `json:"instanceId"`
+	TokenID    string         `json:"tokenId"`
+	Node       string         `json:"node"`
+	Kind       JobKind        `json:"kind"`
+	Vars       map[string]any `json:"vars,omitempty"`
+}
+
+// Incident is a token parked by a technical failure.
+type Incident struct {
+	InstanceID string `json:"instanceId"`
+	TokenID    string `json:"tokenId"`
+	Node       string `json:"node"`
+	Message    string `json:"message"`
+}
+
 // Effects are side effects the caller must apply after a step.
 type Effects struct {
 	NewWork       []WorkItem   `json:"newWork,omitempty"`
@@ -132,5 +159,7 @@ type Effects struct {
 	StartChildren []StartChild `json:"startChildren,omitempty"`
 	CancelChild   []string     `json:"cancelChild,omitempty"` // parent token ids
 	Outbound      []Outbound   `json:"outbound,omitempty"`
+	NewJobs       []Job        `json:"newJobs,omitempty"`
+	Incidents     []Incident   `json:"incidents,omitempty"`
 	Completed     bool         `json:"completed,omitempty"`
 }

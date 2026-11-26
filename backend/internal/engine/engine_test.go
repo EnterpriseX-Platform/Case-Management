@@ -192,3 +192,56 @@ func TestDuration(t *testing.T) {
 		t.Fatal(d, err)
 	}
 }
+
+func TestJobsAndIncidents(t *testing.T) {
+	p := proc(t, `<startEvent id="s"/><serviceTask id="call" cm:url="http://x"/>
+	<boundaryEvent id="rej" attachedToRef="call"><errorEventDefinition errorRef="REJECTED"/></boundaryEvent>
+	<scriptTask id="calc"><script>y = 10 / x</script></scriptTask><userTask id="ok"/><userTask id="handle"/><endEvent id="e"/>`+
+		flow("1", "s", "call")+flow("2", "call", "calc")+flow("3", "calc", "ok")+flow("4", "ok", "e")+flow("5", "rej", "handle")+flow("6", "handle", "e"))
+	e, ctx := eng(), context.Background()
+
+	// service task becomes a job; engine waits
+	in, fx, err := e.Start(ctx, p, "i", "v", "", map[string]any{"x": "bad"})
+	if err != nil || len(fx.NewJobs) != 1 || waiting(in, "call").Wait != WaitJob {
+		t.Fatalf("job not created: %v %+v", err, fx)
+	}
+	// job succeeds; script fails -> incident, case keeps running
+	fx, err = e.CompleteJob(ctx, p, in, fx.NewJobs[0].TokenID, map[string]any{"status": 200})
+	if err != nil || in.Status != Running || len(fx.Incidents) != 1 || waiting(in, "calc").Wait != WaitIncident {
+		t.Fatalf("incident expected: %v %s %+v", err, in.Status, fx)
+	}
+	// operator fixes data and retries
+	in.Vars["x"] = 2
+	if _, err := e.Retry(ctx, p, in, waiting(in, "calc").ID, "ops"); err != nil || waiting(in, "ok") == nil || in.Vars["y"] != 5.0 {
+		t.Fatalf("retry: %v %+v", err, in.Vars)
+	}
+
+	// business error from the connector is caught by the boundary event
+	in2, fx2, _ := e.Start(ctx, p, "i2", "v", "", nil)
+	if _, err := e.FailJob(ctx, p, in2, fx2.NewJobs[0].TokenID, &BPMNError{Code: "REJECTED"}); err != nil || waiting(in2, "handle") == nil {
+		t.Fatalf("bpmn error not caught: %v %+v", err, in2.Tokens)
+	}
+	// technical error -> incident on the service task
+	in3, fx3, _ := e.Start(ctx, p, "i3", "v", "", nil)
+	if _, err := e.FailJob(ctx, p, in3, fx3.NewJobs[0].TokenID, fmt.Errorf("timeout")); err != nil || waiting(in3, "call").Wait != WaitIncident {
+		t.Fatalf("technical failure: %v %+v", err, in3.Tokens)
+	}
+}
+
+func BenchmarkSteps(b *testing.B) {
+	body := `<startEvent id="s"/><parallelGateway id="f"/>`
+	flows := flow("0", "s", "f")
+	for i := 0; i < 10; i++ {
+		body += fmt.Sprintf(`<scriptTask id="t%d"><script>v%d = %d * 2</script></scriptTask>`, i, i, i)
+		flows += flow(fmt.Sprintf("a%d", i), "f", fmt.Sprintf("t%d", i)) + flow(fmt.Sprintf("b%d", i), fmt.Sprintf("t%d", i), "j")
+	}
+	ps, _ := bpmn.ParseString(hdr + body + `<parallelGateway id="j"/><endEvent id="e"/>` + flows + flow("z", "j", "e") + ftr)
+	e, ctx := eng(), context.Background()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, _, err := e.Start(ctx, ps[0], "i", "v", "", nil); err != nil {
+			b.Fatal(err)
+		}
+	}
+	b.ReportMetric(float64(b.N*24)/b.Elapsed().Seconds(), "steps/s")
+}

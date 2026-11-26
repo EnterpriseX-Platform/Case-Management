@@ -27,7 +27,7 @@ var (
 func setup(t *testing.T) (*app.Service, context.Context, map[string]string) {
 	t.Helper()
 	ctx := context.Background()
-	s := app.New(store.NewMemory(), nil, []byte("test"))
+	s := app.New(newStore(t), nil, []byte("test"))
 	data, err := os.ReadFile("../../../packs/purchase-request.cmpack")
 	if err != nil {
 		t.Fatal(err)
@@ -93,6 +93,8 @@ func do(t *testing.T, s *app.Service, ctx context.Context, a app.Actor, caseID, 
 			if err != nil {
 				t.Fatalf("%s: %v", node, err)
 			}
+			drainJobs(t, s, ctx)
+			c, _ = s.S.GetCase(ctx, c.ID)
 			return c
 		}
 	}
@@ -251,5 +253,19 @@ func TestScreenModesToggleAndExternalCallback(t *testing.T) {
 	}
 	if len(inbox(t, s, ctx, reqr, c.ID)) != 1 {
 		t.Fatal("case not sent back")
+	}
+}
+
+// drainJobs runs the job executor until no job is due (rule / service tasks).
+func drainJobs(t *testing.T, s *app.Service, ctx context.Context) {
+	t.Helper()
+	for i := 0; i < 20; i++ {
+		n, err := s.RunJobs(ctx, "test", 50)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n == 0 {
+			return
+		}
 	}
 }
