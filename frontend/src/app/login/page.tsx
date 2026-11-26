@@ -8,15 +8,15 @@ import Dropdown from "@/components/Dropdown";
 import { Field } from "@/components/ui";
 
 const personas = [
-  { id: "admin", name: "ผู้ดูแลระบบ", roles: ["cm:admin"] },
-  { id: "designer", name: "ผู้ออกแบบ flow", roles: ["cm:designer"] },
-  { id: "approver", name: "ผู้อนุมัติเวอร์ชัน", roles: ["cm:approver"] },
-  { id: "supervisor", name: "หัวหน้างาน", roles: ["cm:supervisor"] },
-  { id: "requester", name: "ผู้ยื่นคำขอ", roles: ["requester"] },
-  { id: "reviewer", name: "หน่วยงานให้ความเห็น", roles: ["reviewer"] },
-  { id: "manager", name: "ผู้พิจารณาอนุมัติ", roles: ["approver"] },
-  { id: "buyer", name: "เจ้าหน้าที่จัดซื้อ", roles: ["procurement"] },
-  { id: "finance", name: "เจ้าหน้าที่การเงิน", roles: ["finance"] },
+  { id: "admin", name: "Administrator", roles: ["cm:admin"] },
+  { id: "designer", name: "Flow designer", roles: ["cm:designer"] },
+  { id: "approver", name: "Version approver", roles: ["cm:approver"] },
+  { id: "supervisor", name: "Supervisor", roles: ["cm:supervisor"] },
+  { id: "requester", name: "Requester", roles: ["requester"] },
+  { id: "reviewer", name: "Reviewer", roles: ["reviewer"] },
+  { id: "manager", name: "Approver", roles: ["approver"] },
+  { id: "buyer", name: "Procurement officer", roles: ["procurement"] },
+  { id: "finance", name: "Finance officer", roles: ["finance"] },
 ];
 
 export default function Login() {
@@ -35,13 +35,13 @@ export default function Login() {
           </button>
         ))}
       </div>
-      <h3>กำหนดเอง</h3>
+      <h3>Custom</h3>
       <div className="row3">
-        <Field label="รหัสผู้ใช้"><input value={id} onChange={(e) => setId(e.target.value)} /></Field>
-        <Field label="ชื่อ"><input value={name} onChange={(e) => setName(e.target.value)} /></Field>
-        <Field label="บทบาท"><Dropdown multiple allowCustom options={all.map((x) => ({ value: x, label: x }))} value={roles} onChange={setRoles} /></Field>
+        <Field label="User ID"><input value={id} onChange={(e) => setId(e.target.value)} /></Field>
+        <Field label="Name"><input value={name} onChange={(e) => setName(e.target.value)} /></Field>
+        <Field label="Role"><Dropdown multiple allowCustom options={all.map((x) => ({ value: x, label: x }))} value={roles} onChange={setRoles} /></Field>
       </div>
-      <button className="btn" disabled={!id || !roles.length} onClick={() => { setSession({ id, name: name || id, roles }); r.replace("/"); }}>เข้าใช้งาน</button>
+      <button className="btn" disabled={!id || !roles.length} onClick={() => { setSession({ id, name: name || id, roles }); r.replace("/"); }}>Sign in</button>
     </div>
   );
 }

@@ -15,11 +15,11 @@ type Diff = { added: Ch[]; removed: Ch[]; changed: Ch[] };
 type Ch = { id: string; name: string; type: string; fields?: string[] };
 
 const actions: Record<string, { a: string; label: string; role: string }[]> = {
-  draft: [{ a: "submit", label: "ส่งตรวจ", role: "cm:designer" }],
-  in_review: [{ a: "approve", label: "อนุมัติ", role: "cm:approver" }, { a: "reject", label: "ส่งกลับแก้ไข", role: "cm:approver" }],
-  approved: [{ a: "publish", label: "เผยแพร่ใช้งาน", role: "cm:approver" }],
-  published: [{ a: "deprecate", label: "เลิกใช้กับเรื่องใหม่", role: "cm:approver" }],
-  deprecated: [{ a: "archive", label: "เก็บถาวร", role: "cm:admin" }],
+  draft: [{ a: "submit", label: "Submit for review", role: "cm:designer" }],
+  in_review: [{ a: "approve", label: "Approve", role: "cm:approver" }, { a: "reject", label: "Reject", role: "cm:approver" }],
+  approved: [{ a: "publish", label: "Publish", role: "cm:approver" }],
+  published: [{ a: "deprecate", label: "Deprecate", role: "cm:approver" }],
+  deprecated: [{ a: "archive", label: "Archive", role: "cm:admin" }],
 };
 
 export default function Versions() {
@@ -33,7 +33,7 @@ export default function Versions() {
   const [a, setA] = useState(""), [b, setB] = useState("");
   const [diff, setDiff] = useState<Diff>();
   const act = (p: Promise<unknown>) => p.then(reload).catch((x) => setE(x.message));
-  const opts = (data ?? []).map((v) => ({ value: v.id, label: `v${v.no} · ${v.fiscalYear ? v.fiscalYear + 543 : "-"} · ${v.status}` }));
+  const opts = (data ?? []).map((v) => ({ value: v.id, label: `v${v.no} · ${v.fiscalYear ? v.fiscalYear : "-"} · ${v.status}` }));
 
   const newDraft = async (xml: string, note: string) => {
     try {
@@ -44,28 +44,28 @@ export default function Versions() {
   };
 
   return (
-    <Page title={p?.name ?? key} actions={has(s, "cm:designer") && <button className="btn" onClick={() => newDraft(EMPTY, "")}>สร้างเวอร์ชันใหม่</button>}>
+    <Page title={p?.name ?? key} actions={has(s, "cm:designer") && <button className="btn" onClick={() => newDraft(EMPTY, "")}>New version</button>}>
       <Err e={error ?? e} />
       {warn.map((w) => <div key={w} className="warn">{w}</div>)}
       <table className="tbl">
-        <thead><tr><th>เวอร์ชัน</th><th>ปีงบประมาณ</th><th>สถานะ</th><th>หมายเหตุ</th><th>ผู้สร้าง</th><th>ผู้อนุมัติ</th><th>เผยแพร่</th><th /></tr></thead>
+        <thead><tr><th>Version</th><th>Fiscal year</th><th>Status</th><th>Note</th><th>Author</th><th>Approver</th><th>Published</th><th /></tr></thead>
         <tbody>
           {(data ?? []).map((v) => (
             <tr key={v.id}>
               <td><Link href={`/designer/versions/${v.id}`}>v{v.no}</Link></td>
-              <td>{v.fiscalYear ? v.fiscalYear + 543 : "-"}</td>
+              <td>{v.fiscalYear ? v.fiscalYear : "-"}</td>
               <td><Status s={v.status} /></td>
               <td>{v.note}</td><td>{v.createdBy}</td><td>{v.approvedBy ?? "-"}</td><td className="nw">{dt(v.publishedAt)}</td>
               <td className="nw">
-                <Link className="link" href={`/designer/versions/${v.id}/mapping`}>หน้าจอของขั้นตอน</Link>
+                <Link className="link" href={`/designer/versions/${v.id}/mapping`}>Step screens</Link>
                 {(actions[v.status] ?? []).filter((x) => has(s, x.role)).map((x) => (
                   <button key={x.a} className="link" onClick={() => act(api.post(`/api/versions/${v.id}/${x.a}`))}>{x.label}</button>
                 ))}
                 {has(s, "cm:designer") && (
                   <button className="link" onClick={() => {
-                    const y = prompt("ปีงบประมาณของเวอร์ชันใหม่ (พ.ศ.)", v.fiscalYear ? String(v.fiscalYear + 544) : "");
-                    if (y) act(api.post<Version>(`/api/versions/${v.id}/clone`, { fiscalYear: Number(y) - 543 }).then((n) => r.push(`/designer/versions/${n.id}`)));
-                  }}>คัดลอกเป็นปีถัดไป</button>
+                    const y = prompt("Fiscal year of the new version", v.fiscalYear ? String(v.fiscalYear + 1) : "");
+                    if (y) act(api.post<Version>(`/api/versions/${v.id}/clone`, { fiscalYear: Number(y) }).then((n) => r.push(`/designer/versions/${n.id}`)));
+                  }}>Copy for next year</button>
                 )}
               </td>
             </tr>
@@ -75,25 +75,25 @@ export default function Versions() {
 
       {has(s, "cm:designer") && (
         <section className="card mt">
-          <h3>นำเข้า BPMN เป็นเวอร์ชันใหม่</h3>
-          <DropZone accept=".bpmn,.xml" onFiles={async (fs) => newDraft(await fs[0].text(), "นำเข้าจาก " + fs[0].name)} />
+          <h3>Import BPMN as a new version</h3>
+          <DropZone accept=".bpmn,.xml" onFiles={async (fs) => newDraft(await fs[0].text(), "Imported from " + fs[0].name)} />
         </section>
       )}
 
       <section className="card mt">
-        <h3>เทียบเวอร์ชัน</h3>
+        <h3>Compare versions</h3>
         <div className="row3">
-          <Dropdown placeholder="จาก" value={a} onChange={setA} options={opts} />
-          <Dropdown placeholder="ไปยัง" value={b} onChange={setB} options={opts} />
-          <div><button className="btn-o" disabled={!a || !b} onClick={() => api.get<Diff>(`/api/versions/${a}/diff?to=${b}`).then(setDiff).catch((x) => setE(x.message))}>เทียบ</button></div>
+          <Dropdown placeholder="From" value={a} onChange={setA} options={opts} />
+          <Dropdown placeholder="To" value={b} onChange={setB} options={opts} />
+          <div><button className="btn-o" disabled={!a || !b} onClick={() => api.get<Diff>(`/api/versions/${a}/diff?to=${b}`).then(setDiff).catch((x) => setE(x.message))}>Compare</button></div>
         </div>
         {diff && (
           <table className="tbl mt">
-            <thead><tr><th>การเปลี่ยนแปลง</th><th>ขั้นตอน</th><th>ชนิด</th><th>รายละเอียด</th></tr></thead>
+            <thead><tr><th>Change</th><th>Step</th><th>Type</th><th>Details</th></tr></thead>
             <tbody>
-              {diff.added.map((c) => <tr key={"a" + c.id} className="d-add"><td>เพิ่ม</td><td>{c.name || c.id}</td><td>{c.type}</td><td /></tr>)}
-              {diff.removed.map((c) => <tr key={"r" + c.id} className="d-del"><td>ลบ</td><td>{c.name || c.id}</td><td>{c.type}</td><td /></tr>)}
-              {diff.changed.map((c) => <tr key={"c" + c.id} className="d-chg"><td>แก้ไข</td><td>{c.name || c.id}</td><td>{c.type}</td><td>{c.fields?.join(", ")}</td></tr>)}
+              {diff.added.map((c) => <tr key={"a" + c.id} className="d-add"><td>Added</td><td>{c.name || c.id}</td><td>{c.type}</td><td /></tr>)}
+              {diff.removed.map((c) => <tr key={"r" + c.id} className="d-del"><td>Remove</td><td>{c.name || c.id}</td><td>{c.type}</td><td /></tr>)}
+              {diff.changed.map((c) => <tr key={"c" + c.id} className="d-chg"><td>Changed</td><td>{c.name || c.id}</td><td>{c.type}</td><td>{c.fields?.join(", ")}</td></tr>)}
             </tbody>
           </table>
         )}

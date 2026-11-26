@@ -19,17 +19,17 @@ export default function NewCase() {
     api.post<Case>("/api/cases", { processKey: key, fiscalYear: Number(fy), title })
       .then((c) => r.push(`/cases/${c.id}`)).catch((x) => setE(x.message));
   return (
-    <Page title="ยื่นเรื่องใหม่">
+    <Page title="New case">
       <div className="card narrow">
-        <Field label="ประเภทเรื่อง">
+        <Field label="Case type">
           <Dropdown value={key} onChange={(v) => { setKey(v); setFy(""); }} options={(procs ?? []).map((p) => ({ value: p.key, label: p.name }))} />
         </Field>
-        <Field label="ปีงบประมาณ">
-          <Dropdown value={fy} onChange={setFy} disabled={!key} options={years.map((y) => ({ value: String(y), label: `${y + 543} (ค.ศ. ${y})` }))} />
+        <Field label="Fiscal year">
+          <Dropdown value={fy} onChange={setFy} disabled={!key} options={years.map((y) => ({ value: String(y), label: String(y) }))} />
         </Field>
-        <Field label="ชื่อเรื่อง"><input value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
+        <Field label="Title"><input value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
         <Err e={e} />
-        <div className="bar"><button className="btn" disabled={!key || !fy} onClick={start}>ยื่นเรื่อง</button></div>
+        <div className="bar"><button className="btn" disabled={!key || !fy} onClick={start}>Create case</button></div>
       </div>
     </Page>
   );

@@ -21,11 +21,11 @@ export const DEFAULT_TASK: Screen = { key: "_default", name: "", kind: "task", l
 ] } };
 
 export const WIDGETS: { value: string; label: string }[] = [
-  { value: "form", label: "ฟอร์มของขั้นตอน" }, { value: "caseInfo", label: "ข้อมูลเรื่อง" },
-  { value: "history", label: "ประวัติการดำเนินการ" }, { value: "flow", label: "แผนภาพ flow และตำแหน่งปัจจุบัน" },
-  { value: "subCases", label: "เรื่องย่อย" }, { value: "relatedCases", label: "เรื่องที่เกี่ยวข้อง" },
-  { value: "attachments", label: "เอกสารแนบ" }, { value: "comments", label: "ความเห็น" },
-  { value: "iframe", label: "หน้าจอภายนอก (iframe)" }, { value: "markdown", label: "ข้อความ" },
+  { value: "form", label: "Step form" }, { value: "caseInfo", label: "Case details" },
+  { value: "history", label: "History" }, { value: "flow", label: "Flow diagram with current position" },
+  { value: "subCases", label: "Sub-cases" }, { value: "relatedCases", label: "Related cases" },
+  { value: "attachments", label: "Attachments" }, { value: "comments", label: "Comments" },
+  { value: "iframe", label: "External page (iframe)" }, { value: "markdown", label: "Text" },
 ];
 
 export default function ScreenRenderer({ screen, ctx }: { screen?: Screen; ctx: Ctx }) {
@@ -53,15 +53,15 @@ function W({ w, ctx }: { w: Widget; ctx: Ctx }) {
     case "caseInfo":
       return c ? (
         <div>
-          <h3>ข้อมูลเรื่อง</h3>
+          <h3>Case details</h3>
           <dl className="kv">
-            <dt>เลขที่</dt><dd><Link href={`/cases/${c.id}`}>{c.number}</Link></dd>
-            <dt>เรื่อง</dt><dd>{c.title}</dd>
-            <dt>ปีงบประมาณ</dt><dd>{c.fiscalYear ? c.fiscalYear + 543 : "-"}</dd>
-            <dt>สถานะ</dt><dd><Status s={c.status} /></dd>
+            <dt>No.</dt><dd><Link href={`/cases/${c.id}`}>{c.number}</Link></dd>
+            <dt>Case</dt><dd>{c.title}</dd>
+            <dt>Fiscal year</dt><dd>{c.fiscalYear ? c.fiscalYear : "-"}</dd>
+            <dt>Status</dt><dd><Status s={c.status} /></dd>
             <dt>flow</dt><dd>{c.processKey} v{ctx.version?.no ?? "?"}</dd>
-            <dt>ผู้ยื่น</dt><dd>{c.createdBy}</dd>
-            <dt>วันที่ยื่น</dt><dd>{dt(c.createdAt)}</dd>
+            <dt>Initiator</dt><dd>{c.createdBy}</dd>
+            <dt>Created</dt><dd>{dt(c.createdAt)}</dd>
           </dl>
           <Vars vars={ctx.vars ?? c.instance.vars} />
         </div>
@@ -69,9 +69,9 @@ function W({ w, ctx }: { w: Widget; ctx: Ctx }) {
     case "history":
       return (
         <div>
-          <h3>ประวัติการดำเนินการ</h3>
+          <h3>History</h3>
           <table className="tbl">
-            <thead><tr><th>เวลา</th><th>ผู้ดำเนินการ</th><th>รายการ</th></tr></thead>
+            <thead><tr><th>Time</th><th>By</th><th>Event</th></tr></thead>
             <tbody>
               {(ctx.audit ?? []).map((a, i) => (
                 <tr key={i}><td className="nw">{dt(a.at)}</td><td>{a.actor}</td><td>{auditText(a)}</td></tr>
@@ -84,7 +84,7 @@ function W({ w, ctx }: { w: Widget; ctx: Ctx }) {
       if (!c || !ctx.version) return null;
       return (
         <div>
-          <h3>แผนภาพ flow</h3>
+          <h3>Flow diagram</h3>
           <Viewer xml={ctx.version.bpmn}
             active={(c.instance.tokens ?? []).map((t) => t.node)}
             done={Array.from(new Set(c.instance.history.filter((h) => h.event === "leave").map((h) => h.node)))} />
@@ -93,7 +93,7 @@ function W({ w, ctx }: { w: Widget; ctx: Ctx }) {
     case "subCases":
       return (
         <div>
-          <h3>เรื่องย่อย</h3>
+          <h3>Sub-cases</h3>
           {(ctx.children ?? []).length ? (
             <table className="tbl"><tbody>
               {ctx.children!.map((k) => (
@@ -104,13 +104,13 @@ function W({ w, ctx }: { w: Widget; ctx: Ctx }) {
         </div>
       );
     case "relatedCases":
-      return <div><h3>เรื่องที่เกี่ยวข้อง</h3><div className="muted">{c?.parentId ? <Link href={`/cases/${c.parentId}`}>เรื่องหลัก</Link> : "-"}</div></div>;
+      return <div><h3>Related cases</h3><div className="muted">{c?.parentId ? <Link href={`/cases/${c.parentId}`}>Parent case</Link> : "-"}</div></div>;
     case "attachments": {
       const files = Object.entries(c?.instance.vars ?? {}).filter(([, v]) => Array.isArray(v) && v.every((x) => typeof x === "string" && /\.\w{2,5}$/.test(x)));
-      return <div><h3>เอกสารแนบ</h3>{files.length ? <ul>{files.flatMap(([k, v]) => (v as string[]).map((f) => <li key={k + f}>{f}</li>))}</ul> : <div className="muted">-</div>}</div>;
+      return <div><h3>Attachments</h3>{files.length ? <ul>{files.flatMap(([k, v]) => (v as string[]).map((f) => <li key={k + f}>{f}</li>))}</ul> : <div className="muted">-</div>}</div>;
     }
     case "comments":
-      return <div><h3>ความเห็น</h3><div className="muted">{String(c?.instance.vars?.opinion ?? "-")}</div></div>;
+      return <div><h3>Comments</h3><div className="muted">{String(c?.instance.vars?.opinion ?? "-")}</div></div>;
     case "iframe":
       return w.url ? <iframe className="ext" src={w.url} /> : null;
     case "markdown":
@@ -136,14 +136,14 @@ function Vars({ vars }: { vars: Record<string, unknown> }) {
 export function auditText(a: Audit) {
   const d = a.data ?? {};
   switch (a.action) {
-    case "case.start": return `เปิดเรื่อง ${d.number ?? ""}`;
-    case "work.complete": return `ดำเนินการขั้นตอน ${d.node ?? ""} เสร็จ`;
-    case "work.claim": return "รับงาน";
-    case "work.reassign": return `มอบหมายงานให้ ${d.to || d.role || "คิวงาน"}`;
-    case "case.move": return `ย้ายไปขั้นตอน ${d.to}${d.reason ? " — " + d.reason : ""}`;
-    case "case.cancel": return `ยกเลิกเรื่อง${d.reason ? " — " + d.reason : ""}`;
-    case "case.migrate": return "ย้ายไปใช้ flow เวอร์ชันใหม่";
-    case "step.skip": return `ข้ามขั้นตอน ${d.node} (ปิดใช้งานในเวอร์ชันนี้)`;
+    case "case.start": return `Opened case ${d.number ?? ""}`;
+    case "work.complete": return `Completed step ${d.node ?? ""} Done`;
+    case "work.claim": return "Claim";
+    case "work.reassign": return `Assigned to ${d.to || d.role || "queue"}`;
+    case "case.move": return `Moved to step ${d.to}${d.reason ? " — " + d.reason : ""}`;
+    case "case.cancel": return `Cancel case${d.reason ? " — " + d.reason : ""}`;
+    case "case.migrate": return "Migrated to a new flow version";
+    case "step.skip": return `Skipped step ${d.node} (disabled in this version)`;
     default: return `${a.action} ${th(String(d.status ?? ""))}`.trim();
   }
 }

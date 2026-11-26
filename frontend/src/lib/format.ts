@@ -1,7 +1,7 @@
 export const statusTH: Record<string, string> = {
-  draft: "ร่าง", in_review: "รอตรวจ", approved: "อนุมัติแล้ว", published: "ใช้งาน", deprecated: "เลิกใช้กับเรื่องใหม่",
-  archived: "เก็บถาวร", running: "กำลังดำเนินการ", completed: "เสร็จสิ้น", failed: "ผิดพลาด", cancelled: "ยกเลิก",
-  open: "รอรับงาน", claimed: "รับงานแล้ว", done: "เสร็จ",
+  draft: "Draft", in_review: "In review", approved: "Approved", published: "Enabled", deprecated: "Deprecate",
+  archived: "Archive", running: "In progress", completed: "Completed", failed: "Failed", cancelled: "Cancel",
+  open: "Unassigned", claimed: "Claimed", done: "Done",
 };
 
 export function th(s?: string) {
@@ -11,12 +11,12 @@ export function th(s?: string) {
 export function dt(s?: string) {
   if (!s) return "-";
   const d = new Date(s);
-  return d.toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" });
+  return d.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
 }
 
 export function money(v: unknown) {
   const n = Number(v);
-  return Number.isFinite(n) ? n.toLocaleString("th-TH", { maximumFractionDigits: 2 }) : String(v ?? "");
+  return Number.isFinite(n) ? n.toLocaleString("en-GB", { maximumFractionDigits: 2 }) : String(v ?? "");
 }
 
 export function overdue(due?: string) {

@@ -11,9 +11,9 @@ import { Viewer } from "@/components/Bpmn";
 import { Err, Page, Status } from "@/components/ui";
 
 const UI = [
-  { value: "form", label: "หน้าจอในระบบ (ฟอร์ม low-code)" },
-  { value: "external", label: "หน้าจอระบบภายนอก" },
-  { value: "none", label: "ไม่ใช้หน้าจอ (API)" },
+  { value: "form", label: "Built-in screen (low-code form)" },
+  { value: "external", label: "External screen" },
+  { value: "none", label: "No screen (API only)" },
 ];
 const SLA = ["PT4H", "P1D", "P3D", "P7D", "P14D", "P30D", "P60D"].map((x) => ({ value: x, label: x }));
 
@@ -32,22 +32,22 @@ export default function Mapping() {
   const set = (i: number, b: Partial<Binding>) => setRows(rows.map((r, j) => (j === i ? { ...r, binding: { ...r.binding, ...b } } : r)));
   const save = () =>
     api.put<Step[]>(`/api/versions/${id}/bindings`, rows.map((r) => ({ ...r.binding, nodeId: r.nodeId })))
-      .then((s) => { setRows(s); setMsg("บันทึกแล้ว"); setE(undefined); }).catch((x) => { setE(x.message); setMsg(undefined); });
+      .then((s) => { setRows(s); setMsg("Saved"); setE(undefined); }).catch((x) => { setE(x.message); setMsg(undefined); });
   const fo = (forms ?? []).map((f) => ({ value: f.key, label: f.name, hint: f.key }));
   const so = (screens ?? []).filter((s) => s.kind === "task").map((s) => ({ value: s.key, label: s.name, hint: s.key }));
 
   return (
-    <Page title={`หน้าจอของขั้นตอน · ${v?.processKey ?? ""} v${v?.no ?? ""}`} actions={<>
+    <Page title={`Step screens · ${v?.processKey ?? ""} v${v?.no ?? ""}`} actions={<>
       {v && <Status s={v.status} />}
-      <Link className="btn-o" href={`/designer/versions/${id}`}>แก้ไข flow</Link>
-      <button className="btn" onClick={save}>บันทึก</button>
+      <Link className="btn-o" href={`/designer/versions/${id}`}>Edit flow</Link>
+      <button className="btn" onClick={save}>Save</button>
     </>}>
       <Err e={error ?? e} />
       {msg && <div className="ok">{msg}</div>}
-      {v && v.status !== "draft" && <div className="warn">เวอร์ชันที่ใช้งานแล้วแก้ได้เฉพาะบทบาท, SLA และการเปิด/ปิดขั้นตอน</div>}
+      {v && v.status !== "draft" && <div className="warn">A published version only allows changes to role, SLA and step toggle</div>}
       {v && <Viewer xml={v.bpmn} active={focus ? [focus] : []} />}
       <table className="tbl map">
-        <thead><tr><th>ขั้นตอน</th><th>การแสดงผล</th><th>ฟอร์ม / URL</th><th>หน้าจอ</th><th>บทบาท</th><th>SLA</th><th>ใช้งาน</th><th>เงื่อนไขใช้งาน</th></tr></thead>
+        <thead><tr><th>Step</th><th>Presentation</th><th>Forms / URL</th><th>Screens</th><th>Role</th><th>SLA</th><th>Enabled</th><th>Condition</th></tr></thead>
         <tbody>
           {rows.map((r, i) => {
             const b = r.binding;
@@ -55,22 +55,22 @@ export default function Mapping() {
             return (
               <tr key={r.nodeId} onMouseEnter={() => setFocus(r.nodeId)} className={on ? "" : "off"}>
                 <td><div>{r.name || r.nodeId}</div><div className="muted small">{r.type} · {r.nodeId}</div></td>
-                <td>{r.human ? <Dropdown options={UI} value={b.ui} onChange={(x) => set(i, { ui: x })} /> : <span className="muted">อัตโนมัติ</span>}</td>
+                <td>{r.human ? <Dropdown options={UI} value={b.ui} onChange={(x) => set(i, { ui: x })} /> : <span className="muted">Automatic</span>}</td>
                 <td>
-                  {r.human && b.ui === "form" && <Dropdown options={fo} value={b.formKey} onChange={(x) => set(i, { formKey: x })} placeholder="เลือกฟอร์ม" />}
+                  {r.human && b.ui === "form" && <Dropdown options={fo} value={b.formKey} onChange={(x) => set(i, { formKey: x })} placeholder="Select form" />}
                   {r.human && b.ui === "external" && (
                     <div>
                       <input placeholder="https://" value={b.url ?? ""} onChange={(x) => set(i, { url: x.target.value })} />
                       <button type="button" className={"check sm" + (b.embed ? " on" : "")} onClick={() => set(i, { embed: !b.embed })}>{b.embed ? "✓" : ""}</button>
-                      <span className="small"> แสดงในหน้าระบบ</span>
+                      <span className="small"> Embed in page</span>
                     </div>
                   )}
                 </td>
-                <td>{r.human && b.ui !== "none" && <Dropdown options={so} value={b.screenKey} onChange={(x) => set(i, { screenKey: x })} placeholder="มาตรฐาน" />}</td>
+                <td>{r.human && b.ui !== "none" && <Dropdown options={so} value={b.screenKey} onChange={(x) => set(i, { screenKey: x })} placeholder="Default" />}</td>
                 <td>{r.human && <input value={b.role ?? ""} placeholder={r.lane} onChange={(x) => set(i, { role: x.target.value })} />}</td>
                 <td>{r.human && <Dropdown options={SLA} value={b.sla} allowCustom onChange={(x) => set(i, { sla: x })} placeholder="-" />}</td>
                 <td>{r.human && <button type="button" className={"check" + (on ? " on" : "")} onClick={() => set(i, { enabled: !on })}>{on ? "✓" : ""}</button>}</td>
-                <td>{r.human && <input placeholder="เช่น amount > 1000000" value={b.condition ?? ""} onChange={(x) => set(i, { condition: x.target.value })} />}</td>
+                <td>{r.human && <input placeholder="e.g. amount > 1000000" value={b.condition ?? ""} onChange={(x) => set(i, { condition: x.target.value })} />}</td>
               </tr>
             );
           })}

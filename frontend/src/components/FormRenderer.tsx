@@ -87,12 +87,12 @@ function Input({ f, v, set, ro }: { f: F; v: any; set: (v: any) => void; ro?: bo
                       }} />
                     </td>
                   ))}
-                  {!ro && <td><button type="button" className="link" onClick={() => set(rows.filter((_, j) => j !== i))}>ลบ</button></td>}
+                  {!ro && <td><button type="button" className="link" onClick={() => set(rows.filter((_, j) => j !== i))}>Remove</button></td>}
                 </tr>
               ))}
             </tbody>
           </table>
-          {!ro && <button type="button" className="btn-s" onClick={() => set([...rows, {}])}>เพิ่มแถว</button>}
+          {!ro && <button type="button" className="btn-s" onClick={() => set([...rows, {}])}>Add row</button>}
         </div>
       );
     }
@@ -108,11 +108,11 @@ export function validate(fields: F[], data: Record<string, any>) {
     if (!visible(f.visibleIf, data) || f.type === "display") continue;
     const v = data[f.key];
     const empty = v === undefined || v === null || v === "" || (Array.isArray(v) && !v.length);
-    if (f.required && empty) e[f.key] = "จำเป็นต้องกรอก";
+    if (f.required && empty) e[f.key] = "Required";
     else if (!empty && (f.type === "number" || f.type === "money")) {
-      if (typeof v !== "number") e[f.key] = "ต้องเป็นตัวเลข";
-      else if (f.min !== undefined && v < f.min) e[f.key] = `ต้องไม่น้อยกว่า ${money(f.min)}`;
-      else if (f.max !== undefined && v > f.max) e[f.key] = `ต้องไม่เกิน ${money(f.max)}`;
+      if (typeof v !== "number") e[f.key] = "Must be a number";
+      else if (f.min !== undefined && v < f.min) e[f.key] = `Must be at least ${money(f.min)}`;
+      else if (f.max !== undefined && v > f.max) e[f.key] = `Must be at most ${money(f.max)}`;
     }
   }
   return e;

@@ -5,18 +5,18 @@ import { api, Screen } from "@/lib/api";
 import { useLoad } from "@/lib/useLoad";
 import { Err, Page } from "@/components/ui";
 
-const KIND: Record<string, string> = { task: "หน้าทำงานของขั้นตอน", case: "หน้าภาพรวมเรื่อง", portal: "หน้าผู้ยื่นเรื่อง", dashboard: "หน้าติดตามงาน" };
+const KIND: Record<string, string> = { task: "Task screen", case: "Case overview", portal: "Requester portal", dashboard: "Dashboard" };
 
 export default function Screens() {
   const r = useRouter();
   const { data, error } = useLoad(() => api.get<Screen[]>("/api/screens"));
   return (
-    <Page title="หน้าจอ" actions={<button className="btn" onClick={() => { const k = prompt("รหัสหน้าจอ (ภาษาอังกฤษ)"); if (k) r.push(`/designer/screens/${k}`); }}>สร้างหน้าจอ</button>}>
+    <Page title="Screens" actions={<button className="btn" onClick={() => { const k = prompt("Screen key"); if (k) r.push(`/designer/screens/${k}`); }}>New screen</button>}>
       <Err e={error} />
       <table className="tbl">
-        <thead><tr><th>รหัส</th><th>ชื่อ</th><th>ใช้สำหรับ</th><th>บทบาท</th></tr></thead>
+        <thead><tr><th>Key</th><th>Name</th><th>Used for</th><th>Role</th></tr></thead>
         <tbody>{(data ?? []).map((s) => (
-          <tr key={s.key}><td><Link href={`/designer/screens/${s.key}`}>{s.key}</Link></td><td>{s.name}</td><td>{KIND[s.kind] ?? s.kind}</td><td>{s.roles?.join(", ") ?? "ทุกบทบาท"}</td></tr>
+          <tr key={s.key}><td><Link href={`/designer/screens/${s.key}`}>{s.key}</Link></td><td>{s.name}</td><td>{KIND[s.kind] ?? s.kind}</td><td>{s.roles?.join(", ") ?? "All roles"}</td></tr>
         ))}</tbody>
       </table>
     </Page>

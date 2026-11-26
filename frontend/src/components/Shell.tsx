@@ -7,23 +7,23 @@ import { has, useSession } from "@/lib/useSession";
 
 type Item = { href: string; label: string; role?: string };
 const groups: { title: string; items: Item[] }[] = [
-  { title: "งานของฉัน", items: [
-    { href: "/work", label: "กล่องงาน" },
-    { href: "/cases", label: "เรื่องทั้งหมด" },
-    { href: "/cases/new", label: "ยื่นเรื่องใหม่" },
+  { title: "My work", items: [
+    { href: "/work", label: "Inbox" },
+    { href: "/cases", label: "All cases" },
+    { href: "/cases/new", label: "New case" },
   ] },
-  { title: "ติดตามงาน", items: [
-    { href: "/supervisor", label: "ภาพรวมและคิวงาน", role: "cm:supervisor" },
+  { title: "Monitoring", items: [
+    { href: "/supervisor", label: "Overview & queues", role: "cm:supervisor" },
   ] },
-  { title: "ออกแบบ", items: [
-    { href: "/designer", label: "ประเภทเรื่องและ flow", role: "cm:designer" },
-    { href: "/designer/forms", label: "ฟอร์ม", role: "cm:designer" },
-    { href: "/designer/screens", label: "หน้าจอ", role: "cm:designer" },
+  { title: "Design", items: [
+    { href: "/designer", label: "Case types & flows", role: "cm:designer" },
+    { href: "/designer/forms", label: "Forms", role: "cm:designer" },
+    { href: "/designer/screens", label: "Screens", role: "cm:designer" },
   ] },
-  { title: "ผู้ดูแลระบบ", items: [
-    { href: "/admin", label: "นำเข้าข้อมูล", role: "cm:admin" },
-    { href: "/admin/migration", label: "ย้ายเรื่องข้ามเวอร์ชัน", role: "cm:admin" },
-    { href: "/admin/audit", label: "ประวัติการใช้งาน", role: "cm:admin" },
+  { title: "Administrator", items: [
+    { href: "/admin", label: "Import", role: "cm:admin" },
+    { href: "/admin/migration", label: "Version migration", role: "cm:admin" },
+    { href: "/admin/audit", label: "Audit log", role: "cm:admin" },
   ] },
 ];
 
@@ -45,7 +45,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         <div className="hdr-sp" />
         <div className="hdr-user">
           <span>{s.name}</span>
-          <button onClick={() => { setSession(null); router.replace("/login"); }}>ออกจากระบบ</button>
+          <button onClick={() => { setSession(null); router.replace("/login"); }}>Sign out</button>
         </div>
       </header>
       <aside className="side">

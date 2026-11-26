@@ -19,44 +19,44 @@ export default function Supervisor() {
   const [only, setOnly] = useState("");
   const list = (work ?? []).filter((w) => !only || (only === "late" ? overdue(w.dueAt) : w.role === only));
   return (
-    <Page title="ภาพรวมและคิวงาน">
-      <div className="filters"><Dropdown placeholder="ทุกประเภทเรื่อง" value={proc} onChange={setProc} options={(procs ?? []).map((p) => ({ value: p.key, label: p.name }))} /></div>
+    <Page title="Overview & queues">
+      <div className="filters"><Dropdown placeholder="All case types" value={proc} onChange={setProc} options={(procs ?? []).map((p) => ({ value: p.key, label: p.name }))} /></div>
       <Err e={error ?? e} />
       {d && (
         <div className="row2">
           <section className="card">
-            <h3>งานค้างตามขั้นตอน</h3>
+            <h3>Open work by step</h3>
             <table className="tbl">
-              <thead><tr><th>ขั้นตอน</th><th>เวอร์ชัน</th><th className="r">ค้าง</th><th className="r">เกินกำหนด</th></tr></thead>
+              <thead><tr><th>Step</th><th>Version</th><th className="r">Open</th><th className="r">Overdue</th></tr></thead>
               <tbody>{d.steps.map((x) => <tr key={x.version + x.node}><td>{x.name}</td><td>v{x.no}</td><td className="r">{x.open}</td><td className={"r" + (x.overdue ? " late-t" : "")}>{x.overdue}</td></tr>)}</tbody>
             </table>
           </section>
           <section className="card">
-            <h3>สรุป</h3>
+            <h3>Summary</h3>
             <table className="tbl"><tbody>
-              {Object.entries(d.casesByStatus).map(([k, v]) => <tr key={k}><td><Status s={k} /></td><td className="r">{v} เรื่อง</td></tr>)}
-              <tr><td>งานค้างทั้งหมด</td><td className="r">{d.openWork}</td></tr>
-              <tr><td>งานเกินกำหนด</td><td className="r late-t">{d.overdue}</td></tr>
-              {Object.entries(d.workByRole).map(([k, v]) => <tr key={k}><td className="muted">คิว {k}</td><td className="r">{v}</td></tr>)}
+              {Object.entries(d.casesByStatus).map(([k, v]) => <tr key={k}><td><Status s={k} /></td><td className="r">{v} Case</td></tr>)}
+              <tr><td>Open work</td><td className="r">{d.openWork}</td></tr>
+              <tr><td>Overdue work</td><td className="r late-t">{d.overdue}</td></tr>
+              {Object.entries(d.workByRole).map(([k, v]) => <tr key={k}><td className="muted">Queue {k}</td><td className="r">{v}</td></tr>)}
             </tbody></table>
           </section>
         </div>
       )}
       <section className="card mt">
-        <h3>คิวงานทั้งหมด</h3>
+        <h3>All queues</h3>
         <div className="filters">
-          <Dropdown placeholder="ทุกคิว" value={only} onChange={setOnly}
-            options={[{ value: "late", label: "เฉพาะเกินกำหนด" }, ...Object.keys(d?.workByRole ?? {}).map((r) => ({ value: r, label: `คิว ${r}` }))]} />
+          <Dropdown placeholder="All queues" value={only} onChange={setOnly}
+            options={[{ value: "late", label: "Overdue only" }, ...Object.keys(d?.workByRole ?? {}).map((r) => ({ value: r, label: `Queue ${r}` }))]} />
         </div>
         <table className="tbl">
-          <thead><tr><th>เรื่อง</th><th>ขั้นตอน</th><th>บทบาท</th><th>ผู้รับผิดชอบ</th><th>กำหนดเสร็จ</th><th>มอบหมายให้</th></tr></thead>
+          <thead><tr><th>Case</th><th>Step</th><th>Role</th><th>Assignee</th><th>Due</th><th>Assign to</th></tr></thead>
           <tbody>{list.map((w) => (
             <tr key={w.id} className={overdue(w.dueAt) ? "late" : ""}>
               <td className="nw"><Link href={`/cases/${w.caseId}`}>{w.caseNumber}</Link></td>
               <td>{w.name}{loopLabel(w.input)}</td><td>{w.role}</td><td>{w.assignee || "-"}</td><td className="nw">{dt(w.dueAt)}</td>
               <td className="nw">
-                <input className="sm" placeholder="รหัสผู้ใช้" value={who[w.id] ?? ""} onChange={(x) => setWho({ ...who, [w.id]: x.target.value })} />
-                <button className="btn-s" onClick={() => api.post(`/api/work/${w.id}/reassign`, { assignee: who[w.id] ?? "" }).then(reload).catch((x) => setE(x.message))}>{who[w.id] ? "มอบหมาย" : "คืนคิว"}</button>
+                <input className="sm" placeholder="User ID" value={who[w.id] ?? ""} onChange={(x) => setWho({ ...who, [w.id]: x.target.value })} />
+                <button className="btn-s" onClick={() => api.post(`/api/work/${w.id}/reassign`, { assignee: who[w.id] ?? "" }).then(reload).catch((x) => setE(x.message))}>{who[w.id] ? "Assign" : "Return to queue"}</button>
               </td>
             </tr>
           ))}</tbody>

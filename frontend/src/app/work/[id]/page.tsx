@@ -31,7 +31,7 @@ export default function TaskPage() {
     setD(pre);
   }, [data]);
 
-  if (!data) return <Page title="งาน"><Err e={error} /></Page>;
+  if (!data) return <Page title="Task"><Err e={error} /></Page>;
   const w = data.work;
   const done = w.status === "done" || w.status === "cancelled";
   const mine = w.assignee === s?.id;
@@ -60,9 +60,9 @@ export default function TaskPage() {
       <div>
         <h3>{w.name}</h3>
         {w.embed ? <iframe className="ext" src={src} />
-          : <a className="btn" href={src} target="_blank" rel="noreferrer">เปิดหน้าจอระบบภายนอก</a>}
-        <div className="muted small">ขั้นตอนนี้จะเสร็จเมื่อระบบภายนอกส่งผลกลับ</div>
-        {!done && <div className="bar"><button className="btn-s" onClick={reload}>ตรวจสอบสถานะ</button></div>}
+          : <a className="btn" href={src} target="_blank" rel="noreferrer">Open external screen</a>}
+        <div className="muted small">This step completes when the external system calls back</div>
+        {!done && <div className="bar"><button className="btn-s" onClick={reload}>Refresh status</button></div>}
       </div>
     );
   } else {
@@ -70,12 +70,12 @@ export default function TaskPage() {
       <div>
         <h3>{w.name}</h3>
         {data.form ? <FormRenderer fields={fields} data={d} onChange={setD} readOnly={done} errors={errs} />
-          : <div className="muted">ขั้นตอนนี้ไม่มีฟอร์ม</div>}
+          : <div className="muted">This step has no form</div>}
         <Err e={e} />
         {!done && (
           <div className="bar">
-            <button className="btn" disabled={busy} onClick={submit}>{w.ui === "none" ? "ยืนยันดำเนินการแล้ว" : "บันทึกและส่งต่อ"}</button>
-            {!mine && !w.assignee && <button className="btn-o" onClick={() => api.post(`/api/work/${w.id}/claim`).then(reload).catch((x) => setE(x.message))}>รับงาน</button>}
+            <button className="btn" disabled={busy} onClick={submit}>{w.ui === "none" ? "Mark as done" : "Submit"}</button>
+            {!mine && !w.assignee && <button className="btn-o" onClick={() => api.post(`/api/work/${w.id}/claim`).then(reload).catch((x) => setE(x.message))}>Claim</button>}
           </div>
         )}
       </div>

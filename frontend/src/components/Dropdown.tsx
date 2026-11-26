@@ -15,7 +15,7 @@ type Props = {
   allowCustom?: boolean;
 };
 
-export default function Dropdown({ options, value, onChange, multiple, placeholder = "เลือก", disabled, allowCustom }: Props) {
+export default function Dropdown({ options, value, onChange, multiple, placeholder = "Select", disabled, allowCustom }: Props) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [hi, setHi] = useState(0);
@@ -51,7 +51,7 @@ export default function Dropdown({ options, value, onChange, multiple, placehold
       </button>
       {open && (
         <div className="dd-pop" role="listbox">
-          <input autoFocus className="dd-search" placeholder="ค้นหา" value={q}
+          <input autoFocus className="dd-search" placeholder="Search" value={q}
             onChange={(e) => { setQ(e.target.value); setHi(0); }}
             onKeyDown={(e) => {
               if (e.key === "ArrowDown") setHi(Math.min(hi + 1, list.length - 1));
@@ -64,7 +64,7 @@ export default function Dropdown({ options, value, onChange, multiple, placehold
             }} />
           <div className="dd-list">
             {!multiple && sel.length > 0 && (
-              <div className="dd-opt muted" onMouseDown={() => { onChange(""); setOpen(false); }}>— ไม่เลือก —</div>
+              <div className="dd-opt muted" onMouseDown={() => { onChange(""); setOpen(false); }}>— None —</div>
             )}
             {list.map((o, i) => (
               <div key={o.value} className={"dd-opt" + (i === hi ? " hi" : "") + (sel.includes(o.value) ? " on" : "")}
@@ -75,9 +75,9 @@ export default function Dropdown({ options, value, onChange, multiple, placehold
               </div>
             ))}
             {!list.length && allowCustom && q && (
-              <div className="dd-opt" onMouseDown={() => pick(q)}>ใช้ “{q}”</div>
+              <div className="dd-opt" onMouseDown={() => pick(q)}>Use “{q}”</div>
             )}
-            {!list.length && !(allowCustom && q) && <div className="dd-empty muted">ไม่พบรายการ</div>}
+            {!list.length && !(allowCustom && q) && <div className="dd-empty muted">No results</div>}
           </div>
         </div>
       )}

@@ -15,28 +15,28 @@ export default function Migration() {
   const [map, setMap] = useState<Record<string, string>>({});
   const [res, setRes] = useState<Res>();
   const [e, setE] = useState<string>();
-  const vo = (vers ?? []).map((v) => ({ value: v.id, label: `v${v.no} · ${v.fiscalYear ? v.fiscalYear + 543 : "-"} · ${v.status}` }));
+  const vo = (vers ?? []).map((v) => ({ value: v.id, label: `v${v.no} · ${v.fiscalYear ? v.fiscalYear : "-"} · ${v.status}` }));
   const target = vers?.find((v) => v.id === to);
   const tnodes = target ? Array.from(target.bpmn.matchAll(/<(\w+)\s[^>]*id="([^"]+)"[^>]*name="([^"]*)"/g)).filter((m) => /Task|task|Event|subProcess|callActivity/.test(m[1])).map((m) => ({ value: m[2], label: m[3] || m[2], hint: m[1] })) : [];
   const run = (dryRun: boolean) => api.post<Res>("/api/migrations", { from, to, mapping: map, dryRun }).then((r) => { setRes(r); setE(undefined); }).catch((x) => setE(x.message));
   return (
-    <Page title="ย้ายเรื่องข้ามเวอร์ชัน">
+    <Page title="Version migration">
       <div className="card">
         <div className="row3">
-          <Field label="ประเภทเรื่อง"><Dropdown options={(procs ?? []).map((p) => ({ value: p.key, label: p.name }))} value={key} onChange={(k) => { setKey(k); setFrom(""); setTo(""); setRes(undefined); }} /></Field>
-          <Field label="จากเวอร์ชัน"><Dropdown options={vo} value={from} onChange={setFrom} /></Field>
-          <Field label="ไปเวอร์ชัน"><Dropdown options={vo} value={to} onChange={setTo} /></Field>
+          <Field label="Case type"><Dropdown options={(procs ?? []).map((p) => ({ value: p.key, label: p.name }))} value={key} onChange={(k) => { setKey(k); setFrom(""); setTo(""); setRes(undefined); }} /></Field>
+          <Field label="From version"><Dropdown options={vo} value={from} onChange={setFrom} /></Field>
+          <Field label="To version"><Dropdown options={vo} value={to} onChange={setTo} /></Field>
         </div>
-        <div className="bar"><button className="btn-o" disabled={!from || !to} onClick={() => run(true)}>ทดลองย้าย</button></div>
+        <div className="bar"><button className="btn-o" disabled={!from || !to} onClick={() => run(true)}>Dry run</button></div>
         <Err e={e} />
       </div>
       {res && (
         <section className="card mt">
-          <h3>ผล{res.dryRun ? "การทดลอง" : "การย้าย"}</h3>
-          <div>ย้ายได้ {res.OK} เรื่อง · ติดปัญหา {res.Failed} เรื่อง · ขั้นตอนเพิ่ม {res.diff.added.length} · ลบ {res.diff.removed.length} · แก้ไข {res.diff.changed.length}</div>
+          <h3>Result{res.dryRun ? " (dry run)" : ""}</h3>
+          <div>Ready {res.OK} · Blocked {res.Failed} · Steps added {res.diff.added.length} · removed {res.diff.removed.length} · changed {res.diff.changed.length}</div>
           {res.unmapped.length > 0 && (
             <>
-              <h3 className="mt">ขั้นตอนที่ถูกลบแต่ยังมีเรื่องค้าง — เลือกขั้นตอนปลายทาง</h3>
+              <h3 className="mt">Removed steps that still hold cases — choose a target step</h3>
               <table className="tbl"><tbody>{res.unmapped.map((n) => (
                 <tr key={n}><td>{res.diff.removed.find((r) => r.id === n)?.name || n}</td>
                   <td><Dropdown options={tnodes} value={map[n]} onChange={(v) => setMap({ ...map, [n]: v })} /></td></tr>
@@ -44,13 +44,13 @@ export default function Migration() {
             </>
           )}
           <table className="tbl mt">
-            <thead><tr><th>เรื่อง</th><th>ขั้นตอนเดิม → ขั้นตอนใหม่</th><th>ผล</th></tr></thead>
+            <thead><tr><th>Case</th><th>Old step → new step</th><th>Result</th></tr></thead>
             <tbody>{res.cases.map((c) => (
-              <tr key={c.caseId}><td>{c.number}</td><td>{Object.entries(c.moves).map(([a, b]) => (a === b ? a : `${a} → ${b}`)).join(", ")}</td><td>{c.error ?? "ย้ายได้"}</td></tr>
+              <tr key={c.caseId}><td>{c.number}</td><td>{Object.entries(c.moves).map(([a, b]) => (a === b ? a : `${a} → ${b}`)).join(", ")}</td><td>{c.error ?? "Ready"}</td></tr>
             ))}</tbody>
           </table>
-          {res.dryRun && <div className="bar"><button className="btn-o" onClick={() => run(true)}>ทดลองอีกครั้ง</button>
-            <button className="btn" disabled={res.unmapped.some((n) => !map[n])} onClick={() => { if (confirm("ยืนยันย้ายเรื่องไปเวอร์ชันใหม่")) run(false); }}>ย้ายจริง</button></div>}
+          {res.dryRun && <div className="bar"><button className="btn-o" onClick={() => run(true)}>Run dry run again</button>
+            <button className="btn" disabled={res.unmapped.some((n) => !map[n])} onClick={() => { if (confirm("Move cases to the new version?")) run(false); }}>Migrate</button></div>}
         </section>
       )}
     </Page>

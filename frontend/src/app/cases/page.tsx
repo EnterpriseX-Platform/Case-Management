@@ -16,23 +16,23 @@ export default function Cases() {
   const { data, error } = useLoad(() => api.get<Case[]>(`/api/cases?${q}`), [q]);
   const years = Array.from(new Set((data ?? []).map((c) => c.fiscalYear).filter(Boolean)));
   return (
-    <Page title="เรื่องทั้งหมด" actions={<Link className="btn" href="/cases/new">ยื่นเรื่องใหม่</Link>}>
+    <Page title="All cases" actions={<Link className="btn" href="/cases/new">New case</Link>}>
       <div className="filters">
-        <Dropdown placeholder="ทุกประเภทเรื่อง" value={proc} onChange={setProc} options={(procs ?? []).map((p) => ({ value: p.key, label: p.name }))} />
-        <Dropdown placeholder="ทุกปีงบประมาณ" value={fy} onChange={setFy} allowCustom options={years.map((y) => ({ value: String(y), label: String(y! + 543) }))} />
-        <Dropdown placeholder="ทุกสถานะ" value={st} onChange={setSt} options={["running", "completed", "cancelled", "failed"].map((x) => ({ value: x, label: x === "running" ? "กำลังดำเนินการ" : x === "completed" ? "เสร็จสิ้น" : x === "cancelled" ? "ยกเลิก" : "ผิดพลาด" }))} />
+        <Dropdown placeholder="All case types" value={proc} onChange={setProc} options={(procs ?? []).map((p) => ({ value: p.key, label: p.name }))} />
+        <Dropdown placeholder="All fiscal years" value={fy} onChange={setFy} allowCustom options={years.map((y) => ({ value: String(y), label: String(y!) }))} />
+        <Dropdown placeholder="All statuses" value={st} onChange={setSt} options={["running", "completed", "cancelled", "failed"].map((x) => ({ value: x, label: x === "running" ? "In progress" : x === "completed" ? "Completed" : x === "cancelled" ? "Cancel" : "Failed" }))} />
       </div>
       <Err e={error} />
       {data?.length ? (
         <table className="tbl">
-          <thead><tr><th>เลขที่</th><th>เรื่อง</th><th>ประเภท</th><th>ปีงบประมาณ</th><th>ขั้นตอนปัจจุบัน</th><th>สถานะ</th><th>ปรับปรุงล่าสุด</th></tr></thead>
+          <thead><tr><th>No.</th><th>Case</th><th>Type</th><th>Fiscal year</th><th>Current step</th><th>Status</th><th>Last updated</th></tr></thead>
           <tbody>
             {data.map((c) => (
               <tr key={c.id}>
                 <td className="nw"><Link href={`/cases/${c.id}`}>{c.number}</Link></td>
                 <td>{c.title}</td>
                 <td>{procs?.find((p) => p.key === c.processKey)?.name ?? c.processKey}</td>
-                <td>{c.fiscalYear ? c.fiscalYear + 543 : "-"}</td>
+                <td>{c.fiscalYear ? c.fiscalYear : "-"}</td>
                 <td>{Array.from(new Set((c.instance.tokens ?? []).map((t) => t.node))).join(", ") || "-"}</td>
                 <td><Status s={c.status} /></td>
                 <td className="nw">{dt(c.updatedAt)}</td>
@@ -40,7 +40,7 @@ export default function Cases() {
             ))}
           </tbody>
         </table>
-      ) : data && <Empty>ไม่มีเรื่อง</Empty>}
+      ) : data && <Empty>No cases</Empty>}
     </Page>
   );
 }

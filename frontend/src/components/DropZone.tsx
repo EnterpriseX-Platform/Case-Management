@@ -2,7 +2,7 @@
 // Drag-and-drop file box (no native "Choose File" button).
 import { useRef, useState } from "react";
 
-export default function DropZone({ onFiles, accept, multiple, label = "ลากไฟล์มาวาง หรือคลิกเพื่อเลือกไฟล์" }: {
+export default function DropZone({ onFiles, accept, multiple, label = "Drag and drop a file here or click to upload" }: {
   onFiles: (f: File[]) => void; accept?: string; multiple?: boolean; label?: string;
 }) {
   const inp = useRef<HTMLInputElement>(null);

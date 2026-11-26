@@ -26,7 +26,7 @@ export default function CasePage() {
   const [moveTok, setMoveTok] = useState("");
   const [moveTo, setMoveTo] = useState("");
   const [reason, setReason] = useState("");
-  if (!data) return <Page title="เรื่อง"><Err e={error} /></Page>;
+  if (!data) return <Page title="Case"><Err e={error} /></Page>;
   const c = data.case;
   const sup = has(s, "cm:supervisor");
   const nodes = Array.from(data.version.bpmn.matchAll(/<(userTask|manualTask|task)\s[^>]*id="([^"]+)"[^>]*name="([^"]*)"/g)).map((m) => ({ value: m[2], label: m[3] || m[2] }));
@@ -37,16 +37,16 @@ export default function CasePage() {
     <Page title={`${c.number} · ${c.title}`} actions={<Status s={c.status} />}>
       <Err e={e ?? c.instance.error} />
       <section className="card">
-        <h3>งานที่ค้างอยู่</h3>
+        <h3>Open work</h3>
         {open.length ? (
           <table className="tbl">
-            <thead><tr><th>ขั้นตอน</th><th>บทบาท</th><th>ผู้รับผิดชอบ</th><th>กำหนดเสร็จ</th><th /></tr></thead>
+            <thead><tr><th>Step</th><th>Role</th><th>Assignee</th><th>Due</th><th /></tr></thead>
             <tbody>
               {open.map((w) => (
                 <tr key={w.id} className={overdue(w.dueAt) ? "late" : ""}>
                   <td><Link href={`/work/${w.id}`}>{w.name}</Link>{loopLabel(w.input)}</td>
                   <td>{w.role}</td><td>{w.assignee || "-"}</td><td className="nw">{dt(w.dueAt)}</td>
-                  <td className="nw">{sup && <button className="link" onClick={() => { setMoveTok(w.tokenId); setMoveTo(""); }}>ย้ายขั้นตอน</button>}</td>
+                  <td className="nw">{sup && <button className="link" onClick={() => { setMoveTok(w.tokenId); setMoveTo(""); }}>Move step</button>}</td>
                 </tr>
               ))}
             </tbody>
@@ -54,19 +54,19 @@ export default function CasePage() {
         ) : <div className="muted">-</div>}
         {sup && moveTok && (
           <div className="row3 mt">
-            <Dropdown placeholder="ไปยังขั้นตอน" value={moveTo} onChange={setMoveTo} options={nodes} />
-            <input placeholder="เหตุผล" value={reason} onChange={(e) => setReason(e.target.value)} />
+            <Dropdown placeholder="Target step" value={moveTo} onChange={setMoveTo} options={nodes} />
+            <input placeholder="Reason" value={reason} onChange={(e) => setReason(e.target.value)} />
             <div>
-              <button className="btn" disabled={!moveTo} onClick={() => act(api.post(`/api/cases/${c.id}/move`, { token: moveTok, to: moveTo, reason })).then(() => setMoveTok(""))}>ย้าย</button>
-              <button className="link" onClick={() => setMoveTok("")}>ยกเลิก</button>
+              <button className="btn" disabled={!moveTo} onClick={() => act(api.post(`/api/cases/${c.id}/move`, { token: moveTok, to: moveTo, reason })).then(() => setMoveTok(""))}>Move</button>
+              <button className="link" onClick={() => setMoveTok("")}>Cancel</button>
             </div>
           </div>
         )}
         {sup && c.status === "running" && (
           <div className="bar"><button className="btn-o danger" onClick={() => {
-            const why = prompt("เหตุผลการยกเลิกเรื่อง");
+            const why = prompt("Reason for cancelling");
             if (why) act(api.post(`/api/cases/${c.id}/cancel`, { reason: why }));
-          }}>ยกเลิกเรื่อง</button></div>
+          }}>Cancel case</button></div>
         )}
       </section>
       <ScreenRenderer screen={screen} ctx={{ c, version: data.version, audit: data.audit, children: data.children }} />

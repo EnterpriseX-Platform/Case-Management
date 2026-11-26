@@ -23,9 +23,9 @@ export default function FlowEditor() {
     setE(undefined); setMsg(undefined);
     try {
       const xml = await m.current!.getXML();
-      const r = await api.put<{ version: Version; warnings: string[] }>(`/api/versions/${id}`, { bpmn: xml, fiscalYear: fy ? Number(fy) - 543 : 0 });
+      const r = await api.put<{ version: Version; warnings: string[] }>(`/api/versions/${id}`, { bpmn: xml, fiscalYear: fy ? Number(fy) : 0 });
       setWarn(r.warnings ?? []);
-      setMsg("บันทึกแล้ว");
+      setMsg("Saved");
       setData(r.version);
     } catch (x: any) { setE(x.message); }
   };
@@ -40,19 +40,19 @@ export default function FlowEditor() {
   return (
     <Page title={`${v.processKey} v${v.no}`} actions={<>
       <Status s={v.status} />
-      <Link className="btn-o" href={`/designer/${v.processKey}`}>เวอร์ชันทั้งหมด</Link>
-      <Link className="btn-o" href={`/designer/versions/${id}/mapping`}>หน้าจอของขั้นตอน</Link>
-      <button className="btn-o" onClick={download}>ส่งออก BPMN</button>
-      {draft && <button className="btn" onClick={save}>บันทึก</button>}
+      <Link className="btn-o" href={`/designer/${v.processKey}`}>All versions</Link>
+      <Link className="btn-o" href={`/designer/versions/${id}/mapping`}>Step screens</Link>
+      <button className="btn-o" onClick={download}>Export BPMN</button>
+      {draft && <button className="btn" onClick={save}>Save</button>}
     </>}>
       <Err e={e} />
       {msg && <div className="ok">{msg}</div>}
       {warn.map((w) => <div key={w} className="warn">{w}</div>)}
-      {!draft && <div className="warn">เวอร์ชันนี้{v.status === "published" ? "ใช้งานอยู่" : "ไม่ใช่ร่าง"} แก้ไขไม่ได้ ให้คัดลอกเป็นเวอร์ชันใหม่</div>}
+      {!draft && <div className="warn">This version {v.status === "published" ? "is in use" : "is not a draft"} and cannot be edited. Copy it to a new version.</div>}
       {draft && (
         <div className="row3">
-          <Field label="ปีงบประมาณ (พ.ศ.)"><input inputMode="numeric" placeholder={v.fiscalYear ? String(v.fiscalYear + 543) : ""} value={fy} onChange={(x) => setFy(x.target.value)} /></Field>
-          <Field label="องค์ประกอบที่เลือก"><div className="display">{sel.id ? `${sel.name || "(ไม่มีชื่อ)"} · ${sel.type} · ${sel.id}` : "-"}</div></Field>
+          <Field label="Fiscal year"><input inputMode="numeric" placeholder={v.fiscalYear ? String(v.fiscalYear) : ""} value={fy} onChange={(x) => setFy(x.target.value)} /></Field>
+          <Field label="Selected element"><div className="display">{sel.id ? `${sel.name || "(unnamed)"} · ${sel.type} · ${sel.id}` : "-"}</div></Field>
         </div>
       )}
       <Modeler ref={m} xml={v.bpmn} readOnly={!draft} onSelect={(id, name, type) => setSel({ id, name, type })} />
