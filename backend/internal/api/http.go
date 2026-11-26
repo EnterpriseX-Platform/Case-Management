@@ -71,6 +71,98 @@ func (s *Server) Handler() http.Handler {
 
 	h("GET /api/me", func(w http.ResponseWriter, r *http.Request) (any, error) { return actor(r), nil })
 
+	// work management
+	h("GET /api/me/profile", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		u, err := s.S.S.GetUser(r.Context(), actor(r).ID)
+		if err != nil {
+			return &store.UserProfile{ID: actor(r).ID, Name: actor(r).Name, Roles: actor(r).Roles, Active: true}, nil
+		}
+		return u, nil
+	})
+	h("PUT /api/me/profile", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		var u store.UserProfile
+		if err := decode(r, &u); err != nil {
+			return nil, err
+		}
+		u.ID = actor(r).ID
+		return s.S.SaveProfile(r.Context(), actor(r), &u)
+	})
+	h("GET /api/users", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		us, err := s.S.S.ListUsers(r.Context())
+		if us == nil {
+			us = []*store.UserProfile{}
+		}
+		return us, err
+	})
+	h("PUT /api/users/{id}", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		var u store.UserProfile
+		if err := decode(r, &u); err != nil {
+			return nil, err
+		}
+		u.ID = r.PathValue("id")
+		return s.S.SaveProfile(r.Context(), actor(r), &u)
+	})
+	h("GET /api/queues", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		qs, err := s.S.S.ListQueues(r.Context())
+		out := []*store.Queue{}
+		for _, q := range qs {
+			if !strings.HasPrefix(q.Key, "_") {
+				out = append(out, q)
+			}
+		}
+		return out, err
+	})
+	h("PUT /api/queues/{key}", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		var q store.Queue
+		if err := decode(r, &q); err != nil {
+			return nil, err
+		}
+		q.Key = r.PathValue("key")
+		return q, s.S.SaveQueue(r.Context(), actor(r), &q)
+	})
+	h("DELETE /api/queues/{key}", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		if !actor(r).Has(app.RoleAdmin) && !actor(r).Has(app.RoleSupervisor) {
+			return nil, app.ErrForbidden
+		}
+		return map[string]any{"ok": true}, s.S.S.DeleteQueue(r.Context(), r.PathValue("key"))
+	})
+	h("GET /api/settings", func(w http.ResponseWriter, r *http.Request) (any, error) { return s.S.S.GetSettings(r.Context()) })
+	h("PUT /api/settings", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		var st store.Settings
+		if err := decode(r, &st); err != nil {
+			return nil, err
+		}
+		return st, s.S.SaveSettings(r.Context(), actor(r), &st)
+	})
+	h("GET /api/notifications", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		ns, err := s.S.S.ListNotifications(r.Context(), actor(r).ID, 50)
+		if ns == nil {
+			ns = []*store.Notification{}
+		}
+		return ns, err
+	})
+	h("POST /api/notifications/read", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		var in struct {
+			IDs []string `json:"ids"`
+		}
+		_ = decode(r, &in)
+		return map[string]any{"ok": true}, s.S.S.MarkNotificationsRead(r.Context(), actor(r).ID, in.IDs)
+	})
+	h("POST /api/work/next", func(w http.ResponseWriter, r *http.Request) (any, error) { return s.S.NextWork(r.Context(), actor(r)) })
+	h("POST /api/work/bulk", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		var in struct {
+			IDs    []string `json:"ids"`
+			Op     string   `json:"op"`
+			Target string   `json:"target"`
+			Amount int      `json:"amount"`
+		}
+		if err := decode(r, &in); err != nil {
+			return nil, err
+		}
+		n, err := s.S.Bulk(r.Context(), actor(r), in.IDs, in.Op, in.Target, in.Amount)
+		return map[string]any{"updated": n}, err
+	})
+
 	// case types & versions
 	h("GET /api/processes", func(w http.ResponseWriter, r *http.Request) (any, error) { return s.S.S.ListProcesses(r.Context()) })
 	h("POST /api/processes", func(w http.ResponseWriter, r *http.Request) (any, error) {
@@ -543,6 +635,7 @@ func (s *Server) middleware(m *http.ServeMux, callback http.HandlerFunc) http.Ha
 				return
 			}
 			r = r.WithContext(context.WithValue(r.Context(), ctxKey{}, a))
+			s.S.TouchUser(r.Context(), a)
 		}
 		httpRequests.Add(1)
 		m.ServeHTTP(w, r)

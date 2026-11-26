@@ -79,6 +79,7 @@ export const api = {
   post: <T,>(p: string, b?: unknown) => call<T>("POST", p, b ?? {}),
   put: <T,>(p: string, b: unknown) => call<T>("PUT", p, b),
   upload: <T,>(p: string, f: FormData) => call<T>("POST", p, undefined, f),
+  del: <T,>(p: string) => call<T>("DELETE", p),
 };
 
 // ---- types mirrored from the Go API ----
@@ -90,6 +91,7 @@ export type Version = {
 export type Binding = {
   versionId?: string; nodeId: string; ui: "form" | "external" | "none"; formKey?: string; screenKey?: string;
   url?: string; embed?: boolean; role?: string; sla?: string; enabled?: boolean; condition?: string;
+  route?: Routing; goal?: string; urgency?: number; escalate?: Escalation[];
 };
 export type Step = { nodeId: string; name: string; type: string; lane?: string; human: boolean; binding: Binding };
 export type Field = {
@@ -112,6 +114,7 @@ export type Work = {
   ui: "form" | "external" | "none"; formKey?: string; url?: string; embed?: boolean; screenKey?: string;
   input?: Record<string, unknown>; sla?: string; dueAt?: string; caseId: string; caseNumber: string; caseTitle: string;
   status: string; createdAt: string; completedBy?: string; completedAt?: string;
+  queue?: string; urgency?: number; goalAt?: string; delegatedFrom?: string;
 };
 export type Audit = { at: string; actor: string; action: string; entity: string; ref: string; data?: Record<string, unknown> };
 
@@ -145,3 +148,12 @@ export type Connector = {
   key: string; name: string; method: string; url: string; headers?: Record<string, string>; body?: Record<string, string>;
   response?: Record<string, string>; timeout?: number; retries?: number;
 };
+
+// ---- work management ----
+export type OutOfOffice = { from?: string; to?: string; delegate?: string };
+export type UserProfile = { id: string; name: string; email?: string; roles: string[]; skills?: string[]; capacity?: number; active: boolean; ooo?: OutOfOffice; lastSeen?: string };
+export type Queue = { key: string; name: string; roles?: string[]; members?: string[]; supervisors?: string[] };
+export type Calendar = { enabled: boolean; days: number[]; start: string; end: string; holidays?: string[]; tz?: string };
+export type Notification = { id: string; at: string; kind: string; title: string; link?: string; read: boolean };
+export type Routing = { mode?: string; queue?: string; user?: string; skill?: string; expr?: string };
+export type Escalation = { at: "goal" | "deadline"; do: "notify" | "urgency" | "reassign" | "queue"; target?: string; amount?: number };

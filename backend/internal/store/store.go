@@ -71,6 +71,10 @@ type Binding struct {
 	SLA       string        `json:"sla,omitempty"`
 	Enabled   *bool         `json:"enabled,omitempty"` // step toggle
 	Condition string        `json:"condition,omitempty"`
+	Route     *Routing      `json:"route,omitempty"`
+	Goal      string        `json:"goal,omitempty"`    // goal duration (warning before the SLA deadline)
+	Urgency   int           `json:"urgency,omitempty"` // base urgency 0-100
+	Escalate  []Escalation  `json:"escalate,omitempty"`
 }
 
 // Form is a low-code form definition (JSON schema + layout).
@@ -128,16 +132,22 @@ const (
 
 type Work struct {
 	engine.WorkItem
-	CaseID      string     `json:"caseId"`
-	CaseNumber  string     `json:"caseNumber"`
-	CaseTitle   string     `json:"caseTitle"`
-	ScreenKey   string     `json:"screenKey,omitempty"`
-	Test        bool       `json:"test,omitempty"`
-	Embed       bool       `json:"embed,omitempty"`
-	Status      WorkStatus `json:"status"`
-	CreatedAt   time.Time  `json:"createdAt"`
-	CompletedBy string     `json:"completedBy,omitempty"`
-	CompletedAt *time.Time `json:"completedAt,omitempty"`
+	Queue         string     `json:"queue,omitempty"`
+	Urgency       int        `json:"urgency"`
+	GoalAt        *time.Time `json:"goalAt,omitempty"`
+	GoalDone      bool       `json:"goalDone,omitempty"`     // goal escalations ran
+	DeadlineDone  bool       `json:"deadlineDone,omitempty"` // deadline escalations ran
+	DelegatedFrom string     `json:"delegatedFrom,omitempty"`
+	CaseID        string     `json:"caseId"`
+	CaseNumber    string     `json:"caseNumber"`
+	CaseTitle     string     `json:"caseTitle"`
+	ScreenKey     string     `json:"screenKey,omitempty"`
+	Test          bool       `json:"test,omitempty"`
+	Embed         bool       `json:"embed,omitempty"`
+	Status        WorkStatus `json:"status"`
+	CreatedAt     time.Time  `json:"createdAt"`
+	CompletedBy   string     `json:"completedBy,omitempty"`
+	CompletedAt   *time.Time `json:"completedAt,omitempty"`
 }
 
 type WorkFilter struct {
@@ -209,6 +219,7 @@ type Store interface {
 	ListImports(ctx context.Context) ([]*ImportJob, error)
 
 	OpsStore
+	WorkOps
 
 	// Tx runs fn atomically (Memory: global lock; Postgres: transaction).
 	Tx(ctx context.Context, fn func(ctx context.Context) error) error

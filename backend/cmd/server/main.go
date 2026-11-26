@@ -87,6 +87,7 @@ func main() {
 		}
 		go loop(ctx, time.Second, "jobs", func() (int, error) { return svc.RunJobs(ctx, worker, 50) })
 		go loop(ctx, 5*time.Second, "timers", func() (int, error) { return svc.RunTimers(ctx) })
+		go loop(ctx, 30*time.Second, "sla", func() (int, error) { return svc.RunSLA(ctx) })
 		slog.Info("worker started", "id", worker)
 	}
 	if mode == "worker" {

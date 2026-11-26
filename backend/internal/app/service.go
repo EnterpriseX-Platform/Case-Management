@@ -320,8 +320,15 @@ func (s *Service) applyOnce(ctx context.Context, by Actor, c *store.Case, p *bpm
 				continue
 			}
 		}
+		b := bmap[wi.Node]
+		if err := s.prepareWork(ctx, w, &b, in.Vars, now); err != nil {
+			return nil, err
+		}
 		if err := s.S.PutWork(ctx, w); err != nil {
 			return nil, err
+		}
+		if w.Assignee != "" && !w.Test {
+			s.notify(ctx, w.Assignee, "assigned", w.CaseNumber+" · "+w.Name, "/work/"+w.ID)
 		}
 	}
 
@@ -480,6 +487,9 @@ func (s *Service) canWork(by Actor, w *store.Work) bool {
 	if w.Assignee != "" {
 		return w.Assignee == by.ID
 	}
+	if strings.HasPrefix(w.Role, queuePrefix) {
+		return contains(s.effectiveRoles(context.Background(), by), w.Role)
+	}
 	return w.Role == "" || by.Has(w.Role)
 }
 
@@ -489,6 +499,10 @@ func (s *Service) Inbox(ctx context.Context, by Actor, all bool) ([]*store.Work,
 	if !(all && by.Has(RoleSupervisor)) {
 		f.Assignee, f.Roles = by.ID, by.Roles
 	}
+	if f.Roles != nil {
+		f.Roles = s.effectiveRoles(ctx, by)
+		f.Assignee = by.ID
+	}
 	ws, err := s.S.ListWork(ctx, f)
 	out := ws[:0]
 	for _, w := range ws {
@@ -496,6 +510,7 @@ func (s *Service) Inbox(ctx context.Context, by Actor, all bool) ([]*store.Work,
 			out = append(out, w)
 		}
 	}
+	sortWork(out)
 	return out, err
 }
 
@@ -581,6 +596,10 @@ func (s *Service) Complete(ctx context.Context, by Actor, workID string, data ma
 			}
 		}
 		fx, err := s.E.CompleteTask(ctx, p, c.Instance, w.TokenID, by.ID, data)
+		if errors.Is(err, engine.ErrNotWaiting) {
+			// someone else completed (or moved) this step a moment earlier
+			return conflict("work item was already completed")
+		}
 		if err != nil {
 			return err
 		}

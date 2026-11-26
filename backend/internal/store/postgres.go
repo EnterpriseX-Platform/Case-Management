@@ -214,12 +214,15 @@ func (p *Postgres) NextCaseNumber(ctx context.Context, prefix string) (int, erro
 }
 
 func (p *Postgres) PutWork(ctx context.Context, w *Work) error {
-	return p.exec(ctx, `INSERT INTO cm_work(tenant_id,id,case_id,role,assignee,status,due_at,created_at,data)
-		VALUES($1,$2,$3,$4,NULLIF($5,''),$6,$7,$8,$9)
+	open := w.Status == WorkOpen || w.Status == WorkClaimed
+	sla := open && ((w.GoalAt != nil && !w.GoalDone) || (w.DueAt != nil && !w.DeadlineDone))
+	return p.exec(ctx, `INSERT INTO cm_work(tenant_id,id,case_id,role,assignee,status,due_at,created_at,goal_at,sla_open,data)
+		VALUES($1,$2,$3,$4,NULLIF($5,''),$6,$7,$8,$9,$10,$11)
 		ON CONFLICT (tenant_id,id) DO UPDATE SET role=EXCLUDED.role, assignee=EXCLUDED.assignee,
-		status=EXCLUDED.status, due_at=EXCLUDED.due_at, data=EXCLUDED.data`,
-		p.Tenant, w.ID, w.CaseID, w.Role, w.Assignee, w.Status, w.DueAt, w.CreatedAt, js(w))
+		status=EXCLUDED.status, due_at=EXCLUDED.due_at, goal_at=EXCLUDED.goal_at, sla_open=EXCLUDED.sla_open, data=EXCLUDED.data`,
+		p.Tenant, w.ID, w.CaseID, w.Role, w.Assignee, w.Status, w.DueAt, w.CreatedAt, w.GoalAt, sla, js(w))
 }
+
 func (p *Postgres) GetWork(ctx context.Context, id string) (*Work, error) {
 	return one[Work](ctx, p.q(ctx), `SELECT data FROM cm_work WHERE tenant_id=$1 AND id=$2`, p.Tenant, id)
 }

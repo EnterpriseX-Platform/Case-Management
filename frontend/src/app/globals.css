@@ -393,3 +393,10 @@ pre.code { background: var(--cds-layer-02); padding: 12px; font-family: var(--mo
 .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1px; background: var(--cds-border-subtle); border: 1px solid var(--cds-border-subtle); }
 .tile { background: var(--cds-layer-01); padding: 16px; min-height: 80px; color: var(--cds-text-primary); }
 .tile:hover { background: var(--cds-layer-hover); text-decoration: none; }
+.hdr-link { color: var(--cds-shell-text); height: 48px; display: inline-flex; align-items: center; padding: 0 8px; }
+.hdr-link:hover { background: var(--cds-shell-hover); color: #f4f4f4; text-decoration: none; }
+tr.unread td { font-weight: 600; }
+.urg { font-variant-numeric: tabular-nums; }
+.bulkbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: var(--cds-interactive); color: #fff; padding: 8px 16px; margin-bottom: 1px; }
+.bulkbar .dd-btn { background: #fff; }
+.bulkbar .btn-s { color: #fff; border: 1px solid #fff; }

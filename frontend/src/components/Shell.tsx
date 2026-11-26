@@ -2,7 +2,8 @@
 import { currentLang, setLang, t } from "@/lib/i18n";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { api, Notification } from "@/lib/api";
 import { signOut } from "@/lib/oidc";
 import { has, useSession } from "@/lib/useSession";
 
@@ -27,9 +28,23 @@ const groups: { title: string; items: Item[] }[] = [
   { title: t("Administrator"), items: [
     { href: "/admin", label: t("Import"), role: "cm:admin" },
     { href: "/admin/migration", label: t("Version migration"), role: "cm:admin" },
+    { href: "/admin/users", label: t("Users & queues"), role: "cm:supervisor" },
+    { href: "/admin/calendar", label: t("Business calendar"), role: "cm:admin" },
     { href: "/admin/audit", label: t("Audit log"), role: "cm:admin" },
   ] },
 ];
+
+function Bell() {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    let dead = false;
+    const f = () => api.get<Notification[]>("/api/notifications").then((x) => !dead && setN((x ?? []).filter((y) => !y.read).length)).catch(() => {});
+    f();
+    const id = setInterval(f, 30000);
+    return () => { dead = true; clearInterval(id); };
+  }, []);
+  return <Link href="/notifications" className="hdr-link" title={t("Notifications")}>{t("Notifications")}{n ? ` (${n})` : ""}</Link>;
+}
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const s = useSession();
@@ -49,7 +64,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         <div className="hdr-sp" />
         <div className="hdr-user">
           <button onClick={() => setLang(currentLang() === "th" ? "en" : "th")} title={t("Language")}>{currentLang() === "th" ? "EN" : "ไทย"}</button>
-          <span>{s.name}</span>
+          <Bell />
+          <Link href="/profile" className="hdr-link">{s.name}</Link>
           <button onClick={() => signOut()}>{t("Sign out")}</button>
         </div>
       </header>

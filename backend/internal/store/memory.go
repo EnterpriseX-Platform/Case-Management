@@ -27,6 +27,7 @@ type Memory struct {
 	imports  []*ImportJob
 	seq      map[string]int
 	o        *memOps
+	w        *memWork
 }
 
 func NewMemory() *Memory {
