@@ -49,7 +49,7 @@ export default function FormBuilder() {
     if (drag.from !== undefined) {
       const n = fields.slice(); const [x] = n.splice(drag.from, 1); n.splice(drag.from < at ? at - 1 : at, 0, x); setFields(n); setSel(drag.from < at ? at - 1 : at);
     } else if (drag.data) insert(fromData(drag.data), at);
-    else if (drag.type) { let k = fields.length + 1; while (fields.some((x) => x.key === `field${k}`)) k++; insert({ key: `field${k}`, label: TYPES.find((t) => t.value === drag.type)!.label, type: drag.type, width: 12 }, at); }
+    else if (drag.type) { let k = fields.length + 1; while (fields.some((x) => x.key === `field${k}`)) k++; insert({ key: `field${k}`, label: t(TYPES.find((ty) => ty.value === drag.type)!.label), type: drag.type, width: 12 }, at); }
     setDrag(null); setOver(null);
   };
   const fields = f.schema.fields;
@@ -58,7 +58,7 @@ export default function FormBuilder() {
   const add = (type: string) => {
     let n = fields.length + 1;
     while (fields.some((x) => x.key === `field${n}`)) n++;
-    setFields([...fields, { key: `field${n}`, label: TYPES.find((t) => t.value === type)!.label, type, width: 12 }]);
+    setFields([...fields, { key: `field${n}`, label: t(TYPES.find((ty) => ty.value === type)!.label), type, width: 12 }]);
     setSel(fields.length);
   };
   const move = (d: number) => {
@@ -70,13 +70,13 @@ export default function FormBuilder() {
   const save = () => api.put<Form>(`/api/forms/${key}`, f).then((x) => { setF(x); setMsg(`Saved (revision ${x.version})`); setE(undefined); }).catch((x) => { setE(x.message); setMsg(undefined); });
 
   return (
-    <Page title={`Forms · ${key}`} actions={<button className="btn" onClick={save}>{t("Save")}</button>}>
+    <Page crumb={{ href: "/designer/forms", label: t("Forms") }} title={f.name || key} actions={<button className="btn" onClick={save}>{t("Save")}</button>}>
       <Err e={e} />{msg && <div className="ok">{msg}</div>}
       <Field label={t("Form name")}><input value={f.name} onChange={(x) => setF({ ...f, name: x.target.value })} /></Field>
       <div className="builder">
         <div className="palette">
           <div className="side-h">{t("Add field")}</div>
-          {TYPES.map((t) => <button key={t.value} className="pal" draggable onDragStart={() => setDrag({ type: t.value })} onClick={() => add(t.value)}>{t.label}</button>)}
+          {TYPES.map((ty) => <button key={ty.value} className="pal" draggable onDragStart={() => setDrag({ type: ty.value })} onClick={() => add(ty.value)}>{t(ty.label)}</button>)}
           <div className="side-h">{t("Case data")}</div>
           <div style={{ padding: "0 8px 8px" }}><Dropdown options={apps.map((a) => ({ value: a.key, label: a.name }))} value={app} onChange={setApp} placeholder={t("App")} /></div>
           {data.filter((d) => !fields.some((x) => x.key === d.key)).map((d) => (
@@ -91,7 +91,7 @@ export default function FormBuilder() {
             <div key={i} className={"fitem" + (i === sel ? " on" : "") + (over === i ? " drop-before" : "")} onClick={() => setSel(i)}
               draggable onDragStart={() => setDrag({ from: i })} onDragEnd={() => { setDrag(null); setOver(null); }}
               onDragOver={(ev) => { if (drag) { ev.preventDefault(); setOver(i); } }} onDrop={(ev) => { ev.preventDefault(); dropAt(i); }}>
-              <span>{x.label}</span><span className="muted small">{x.key} · {TYPES.find((t) => t.value === x.type)?.label}{x.required ? " · required" : ""}</span>
+              <span>{x.label}</span><span className="muted small">{x.key} · {t(TYPES.find((ty) => ty.value === x.type)?.label ?? x.type)}{x.required ? " · required" : ""}</span>
             </div>
           ))}
           <div className={"drop-end" + (over === fields.length ? " on" : "")} onDragOver={(ev) => { if (drag) { ev.preventDefault(); setOver(fields.length); } }}
@@ -110,7 +110,7 @@ export default function FormBuilder() {
             <>
               <Field label={t("Label")}><input value={cur.label} onChange={(x) => upd({ label: x.target.value })} /></Field>
               <Field label={t("Variable name")} hint="Used in flow conditions"><input value={cur.key} onChange={(x) => upd({ key: x.target.value.replace(/[^\w]/g, "") })} /></Field>
-              <Field label={t("Type")}><Dropdown options={TYPES} value={cur.type} onChange={(t) => upd({ type: t })} /></Field>
+              <Field label={t("Type")}><Dropdown options={TYPES.map((ty) => ({ ...ty, label: t(ty.label) }))} value={cur.type} onChange={(t) => upd({ type: t })} /></Field>
               <Field label={t("Width")}><Dropdown options={WIDTH} value={String(cur.width ?? 12)} onChange={(w) => upd({ width: Number(w) })} /></Field>
               <div className="fld"><span className="fld-l">{t("Required")}</span>
                 <button type="button" className={"check" + (cur.required ? " on" : "")} onClick={() => upd({ required: !cur.required })}>{cur.required ? "✓" : ""}</button></div>

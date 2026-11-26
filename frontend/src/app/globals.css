@@ -438,3 +438,4 @@ body.dev .dev-only { display: revert !important; }
 
 .card.task { border-left: 3px solid var(--cds-interactive); margin-bottom: 16px; }
 .task-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+.crumb { font-size: 12px; margin-bottom: 4px; }

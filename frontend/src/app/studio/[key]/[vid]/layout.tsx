@@ -73,7 +73,7 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
           <Link key={x.k} href={`/studio/${key}/${vid}/${x.k}`} className={section === x.k ? "on" : ""}>{t(x.label)}</Link>
         ))}
         <span className="hdr-sp" />
-        <Link href={`/designer/${key}`}>{t("Versions")}</Link>
+        <Link href={`/studio/${key}/${vid}/versions`} className={section === "versions" ? "on" : ""}>{t("Versions")}</Link>
       </nav>
       <div className="studio-main">{children}</div>
     </div>

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { api, Queue, UserProfile } from "@/lib/api";
 import { dt } from "@/lib/format";
 import { t } from "@/lib/i18n";
+import { useDialog } from "@/components/useDialog";
 import { useLoad } from "@/lib/useLoad";
 import Dropdown from "@/components/Dropdown";
 import { Err, Field } from "@/components/ui";
@@ -14,6 +15,7 @@ export default function UsersQueues() {
   const { data: users, reload: reloadU } = useLoad(() => api.get<UserProfile[]>("/api/users"));
   const { data: queues, reload: reloadQ } = useLoad(() => api.get<Queue[]>("/api/queues"));
   const [tab, setTab] = useState<"users" | "queues">("users");
+  const dlg = useDialog();
   const [edit, setEdit] = useState<Record<string, UserProfile>>({});
   const [q, setQ] = useState<Queue | null>(null);
   const [e, setE] = useState<string>();
@@ -27,6 +29,7 @@ export default function UsersQueues() {
   const saveQueue = () => q && api.put(`/api/queues/${q.key}`, q).then(() => { ok(t("Saved")); setQ(null); reloadQ(); }).catch((x) => setE(x.message));
   return (
     <Page title={t("Users & queues")}>
+      {dlg.node}
       <div className="tabs">
         <button className={tab === "users" ? "on" : ""} onClick={() => setTab("users")}>{t("Users")} ({users?.length ?? 0})</button>
         <button className={tab === "queues" ? "on" : ""} onClick={() => setTab("queues")}>{t("Queues")} ({queues?.length ?? 0})</button>
@@ -75,7 +78,7 @@ export default function UsersQueues() {
                 <td className="small">{(x.members ?? []).join(", ") || "-"}</td>
                 <td className="small">{(x.supervisors ?? []).join(", ") || "-"}</td>
                 <td className="nw"><button className="link" onClick={() => setQ(x)}>{t("Edit")}</button>
-                  <button className="link danger" onClick={() => confirm(t("Delete queue?")) && api.del(`/api/queues/${x.key}`).then(reloadQ).catch((y) => setE(y.message))}>{t("Remove")}</button></td>
+                  <button className="link danger" onClick={async () => (await dlg.confirm(t("Delete queue?"), { ok: t("Remove"), danger: true })) && api.del(`/api/queues/${x.key}`).then(reloadQ).catch((y) => setE(y.message))}>{t("Remove")}</button></td>
               </tr>
             ))}</tbody>
           </table>

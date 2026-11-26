@@ -1,8 +1,9 @@
 "use client";
+import { t } from "@/lib/i18n";
 // Drag-and-drop file box (no native "Choose File" button).
 import { useRef, useState } from "react";
 
-export default function DropZone({ onFiles, accept, multiple, label = "Drag and drop a file here or click to upload" }: {
+export default function DropZone({ onFiles, accept, multiple, label }: {
   onFiles: (f: File[]) => void; accept?: string; multiple?: boolean; label?: string;
 }) {
   const inp = useRef<HTMLInputElement>(null);
@@ -22,7 +23,7 @@ export default function DropZone({ onFiles, accept, multiple, label = "Drag and 
       onDragLeave={() => setOver(false)}
       onDrop={(e) => { e.preventDefault(); setOver(false); take(e.dataTransfer.files); }}>
       <input ref={inp} type="file" hidden accept={accept} multiple={multiple} onChange={(e) => take(e.target.files)} />
-      <div>{names.length ? names.join(", ") : label}</div>
+      <div>{names.length ? names.join(", ") : label ?? t("Drag and drop a file here or click to upload")}</div>
       {accept && <div className="muted small">{accept}</div>}
     </div>
   );

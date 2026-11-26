@@ -1,8 +1,9 @@
 "use client";
 import { t } from "@/lib/i18n";
+import { useDialog } from "@/components/useDialog";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, ProcessDef, Version } from "@/lib/api";
 import { dt } from "@/lib/format";
 import { useLoad } from "@/lib/useLoad";
@@ -24,12 +25,19 @@ const actions: Record<string, { a: string; label: string; role: string }[]> = {
 };
 
 export default function Versions() {
-  const { key } = useParams<{ key: string }>();
+  const { key, vid } = useParams<{ key: string; vid?: string }>();
+  const inStudio = !!vid;
+  const router = useRouter();
+  useEffect(() => {
+    if (inStudio) return;
+    api.get<Version[]>(`/api/processes/${key}/versions`).then((vs) => vs?.[0] && router.replace(`/studio/${key}/${vs[0].id}/versions`)).catch(() => {});
+  }, [inStudio, key, router]);
   const s = useSession();
   const r = useRouter();
   const { data: p } = useLoad(() => api.get<ProcessDef>(`/api/processes/${key}`), [key]);
   const { data, error, reload } = useLoad(() => api.get<Version[]>(`/api/processes/${key}/versions`), [key]);
   const [e, setE] = useState<string>();
+  const dlg = useDialog();
   const [warn, setWarn] = useState<string[]>([]);
   const [a, setA] = useState(""), [b, setB] = useState("");
   const [diff, setDiff] = useState<Diff>();
@@ -40,12 +48,13 @@ export default function Versions() {
     try {
       const res = await api.post<{ version: Version; warnings: string[] }>(`/api/processes/${key}/versions`, { bpmn: xml, note });
       setWarn(res.warnings ?? []);
-      r.push(`/designer/versions/${res.version.id}`);
+      r.push(`/studio/${key}/${res.version.id}/lifecycle`);
     } catch (x: any) { setE(x.message); }
   };
 
   return (
-    <Page title={p?.name ?? key} actions={has(s, "cm:designer") && <button className="btn" onClick={() => newDraft(EMPTY, "")}>{t("New version")}</button>}>
+    <Page title={inStudio ? t("Versions") : p?.name ?? key} actions={has(s, "cm:designer") && <button className="btn" onClick={() => newDraft(EMPTY, "")}>{t("New version")}</button>}>
+      {dlg.node}
       <Err e={error ?? e} />
       {warn.map((w) => <div key={w} className="warn">{w}</div>)}
       <table className="tbl">
@@ -53,20 +62,19 @@ export default function Versions() {
         <tbody>
           {(data ?? []).map((v) => (
             <tr key={v.id}>
-              <td><Link href={`/designer/versions/${v.id}`}>v{v.no}</Link></td>
+              <td><Link href={`/studio/${key}/${v.id}/lifecycle`}>v{v.no}</Link></td>
               <td>{v.fiscalYear ? v.fiscalYear : "-"}</td>
               <td><Status s={v.status} /></td>
               <td>{v.note}</td><td>{v.createdBy}</td><td>{v.approvedBy ?? "-"}</td><td className="nw">{dt(v.publishedAt)}</td>
               <td className="nw">
-                <Link className="link" href={`/designer/versions/${v.id}/model`}>{t("Case model")}</Link>
-                <Link className="link" href={`/designer/versions/${v.id}/mapping`}>{t("Step screens")}</Link>
+                                <Link className="link" href={`/studio/${key}/${v.id}/screens`}>{t("Step screens")}</Link>
                 {(actions[v.status] ?? []).filter((x) => has(s, x.role)).map((x) => (
                   <button key={x.a} className="link" onClick={() => act(api.post(`/api/versions/${v.id}/${x.a}`))}>{x.label}</button>
                 ))}
                 {has(s, "cm:designer") && (
-                  <button className="link" onClick={() => {
-                    const y = prompt("Fiscal year of the new version", v.fiscalYear ? String(v.fiscalYear + 1) : "");
-                    if (y) act(api.post<Version>(`/api/versions/${v.id}/clone`, { fiscalYear: Number(y) }).then((n) => r.push(`/designer/versions/${n.id}`)));
+                  <button className="link" onClick={async () => {
+                    const y = await dlg.prompt(t("New version"), t("Fiscal year of the new version"), v.fiscalYear ? String(v.fiscalYear + 1) : "", { ok: t("Create") });
+                    if (y) act(api.post<Version>(`/api/versions/${v.id}/clone`, { fiscalYear: Number(y) }).then((n) => r.push(`/studio/${key}/${n.id}/lifecycle`)));
                   }}>{t("Copy for next year")}</button>
                 )}
               </td>

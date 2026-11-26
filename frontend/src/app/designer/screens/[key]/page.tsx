@@ -25,7 +25,7 @@ export default function ScreenBuilder() {
   const setCol = (i: number, j: number, p: Partial<Widget>) => setRows(rows.map((r, a) => a !== i ? r : { cols: r.cols.map((c, b) => (b === j ? { ...c, ...p } : c)) }));
   const used = (r: (typeof rows)[0]) => r.cols.reduce((n, c) => n + (c.width || 12), 0);
   return (
-    <Page title={`Screens · ${key}`} actions={<button className="btn" onClick={() => api.put<Screen>(`/api/screens/${key}`, s).then((x) => { setS(x); setMsg("Saved"); setE(undefined); }).catch((x) => { setE(x.message); setMsg(undefined); })}>{t("Save")}</button>}>
+    <Page crumb={{ href: "/designer/screens", label: t("Screens") }} title={s.name || key} actions={<button className="btn" onClick={() => api.put<Screen>(`/api/screens/${key}`, s).then((x) => { setS(x); setMsg("Saved"); setE(undefined); }).catch((x) => { setE(x.message); setMsg(undefined); })}>{t("Save")}</button>}>
       <Err e={e} />{msg && <div className="ok">{msg}</div>}
       <div className="row3">
         <Field label={t("Screen name")}><input value={s.name} onChange={(x) => setS({ ...s, name: x.target.value })} /></Field>

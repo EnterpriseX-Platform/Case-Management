@@ -1,5 +1,6 @@
 "use client";
 import { t } from "@/lib/i18n";
+import { useDialog } from "@/components/useDialog";
 import { useState } from "react";
 import { api, ProcessDef, Version } from "@/lib/api";
 import { useLoad } from "@/lib/useLoad";
@@ -15,6 +16,7 @@ export default function Migration() {
   const [from, setFrom] = useState(""), [to, setTo] = useState("");
   const [map, setMap] = useState<Record<string, string>>({});
   const [res, setRes] = useState<Res>();
+  const dlg = useDialog();
   const [e, setE] = useState<string>();
   const vo = (vers ?? []).map((v) => ({ value: v.id, label: `v${v.no} · ${v.fiscalYear ? v.fiscalYear : "-"} · ${v.status}` }));
   const target = vers?.find((v) => v.id === to);
@@ -22,6 +24,7 @@ export default function Migration() {
   const run = (dryRun: boolean) => api.post<Res>("/api/migrations", { from, to, mapping: map, dryRun }).then((r) => { setRes(r); setE(undefined); }).catch((x) => setE(x.message));
   return (
     <Page title={t("Version migration")}>
+      {dlg.node}
       <div className="card">
         <div className="row3">
           <Field label={t("Case type")}><Dropdown options={(procs ?? []).map((p) => ({ value: p.key, label: p.name }))} value={key} onChange={(k) => { setKey(k); setFrom(""); setTo(""); setRes(undefined); }} /></Field>
@@ -51,7 +54,7 @@ export default function Migration() {
             ))}</tbody>
           </table>
           {res.dryRun && <div className="bar"><button className="btn-o" onClick={() => run(true)}>Run dry run again</button>
-            <button className="btn" disabled={res.unmapped.some((n) => !map[n])} onClick={() => { if (confirm("Move cases to the new version?")) run(false); }}>{t("Migrate")}</button></div>}
+            <button className="btn" disabled={res.unmapped.some((n) => !map[n])} onClick={async () => { if (await dlg.confirm(t("Move cases to the new version?"), { ok: t("Migrate") })) run(false); }}>{t("Migrate")}</button></div>}
         </section>
       )}
     </Page>

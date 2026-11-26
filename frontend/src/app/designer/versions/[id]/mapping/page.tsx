@@ -1,4 +1,5 @@
 "use client";
+import { useStudioRedirect } from "@/components/StudioRedirect";
 // Screen mapping: choose, per flow step, a low-code form + screen, an
 // external screen, or no screen (API only); plus role, SLA and step toggle.
 import { t } from "@/lib/i18n";
@@ -36,6 +37,7 @@ export default function Mapping() {
   const prm = useParams<{ id?: string; vid?: string }>();
   const id = (prm.id ?? prm.vid) as string; // also mounted inside the App Studio
   const inStudio = !!prm.vid;
+  useStudioRedirect(id, inStudio, "screens");
   const { data: v } = useLoad(() => api.get<Version>(`/api/versions/${id}`), [id]);
   const { data: steps, error } = useLoad(() => api.get<Step[]>(`/api/versions/${id}/steps`), [id]);
   const { data: forms } = useLoad(() => api.get<Form[]>("/api/forms"));
@@ -56,12 +58,7 @@ export default function Mapping() {
   const so = (screens ?? []).filter((s) => s.kind === "task").map((s) => ({ value: s.key, label: s.name, hint: s.key }));
 
   return (
-    <Page title={`Step screens · ${v?.processKey ?? ""} v${v?.no ?? ""}`} actions={<>
-      {v && <Status s={v.status} />}
-      {!inStudio && <Link className="btn-o" href={`/designer/versions/${id}/model`}>{t("Case model")}</Link>}
-      <Link className="btn-o" href={`/designer/versions/${id}`}>{t("Edit flow")}</Link>
-      <button className="btn" onClick={save}>{t("Save")}</button>
-    </>}>
+    <Page title={t("Screens & routing")} actions={<button className="btn" onClick={save}>{t("Save")}</button>}>
       <Err e={error ?? e} />
       {msg && <div className="ok">{msg}</div>}
       {v && v.status !== "draft" && <div className="warn">A published version only allows changes to role, SLA and step toggle</div>}

@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { api, ActionView, Audit, Case, CaseModel, EventRec, Form, StageView, Version, Work } from "@/lib/api";
 import { dt, loopLabel, money, overdue } from "@/lib/format";
 import { t } from "@/lib/i18n";
+import { useDialog } from "@/components/useDialog";
 import { useLoad } from "@/lib/useLoad";
 import { has, useSession } from "@/lib/useSession";
 import Dropdown from "@/components/Dropdown";
@@ -43,6 +44,7 @@ export default function CasePage() {
     case: { ...d.case, instance: { ...d.case.instance, tokens: d.case.instance.tokens ?? [], history: d.case.instance.history ?? [] } },
   })), [id]);
   const [tab, setTab] = useState<Tab>("work");
+  const dlg = useDialog();
   const [e, setE] = useState<string>();
   const [msg, setMsg] = useState<string>();
   const [moveTok, setMoveTok] = useState("");
@@ -99,6 +101,7 @@ export default function CasePage() {
         <button key={a.key} className="btn-o" onClick={() => setAction(a)}>{a.label}</button>
       ))}
     </>}>
+      {dlg.node}
       <Err e={e ?? c.instance.error} />{msg && <div className="ok">{msg}</div>}
       {(data.incidents ?? []).filter((i) => i.status === "open").map((i) => (
         <div key={i.id} className="err">{t("Incident at")} {i.nodeName}: {i.message} · <Link href="/incidents">{t("Resolve")}</Link></div>
@@ -151,8 +154,8 @@ export default function CasePage() {
             </div>
           )}
           {sup && running && (
-            <div className="bar"><button className="btn-o danger" onClick={() => {
-              const why = prompt(t("Reason for cancelling"));
+            <div className="bar"><button className="btn-o danger" onClick={async () => {
+              const why = await dlg.prompt(t("Cancel case"), t("Reason for cancelling"), "", { ok: t("Cancel case"), danger: true });
               if (why) act(api.post(`/api/cases/${c.id}/cancel`, { reason: why }));
             }}>{t("Cancel case")}</button></div>
           )}

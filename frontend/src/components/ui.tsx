@@ -1,9 +1,11 @@
 "use client";
+import Link from "next/link";
 import { th } from "@/lib/format";
 
-export function Page({ title, actions, children }: { title: string; actions?: React.ReactNode; children: React.ReactNode }) {
+export function Page({ title, actions, children, crumb }: { title: string; actions?: React.ReactNode; children: React.ReactNode; crumb?: { href: string; label: string } }) {
   return (
     <div className="page">
+      {crumb && <div className="crumb"><Link href={crumb.href}>{crumb.label}</Link></div>}
       <div className="page-head"><h1>{title}</h1><div className="actions">{actions}</div></div>
       {children}
     </div>

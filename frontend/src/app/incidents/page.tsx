@@ -2,6 +2,7 @@
 // Incident queue: steps parked by a technical failure (connector down,
 // script error, ...). Operators retry, fix data, move the case or cancel it.
 import { t } from "@/lib/i18n";
+import { useDialog } from "@/components/useDialog";
 import Link from "next/link";
 import { Fragment, useState } from "react";
 import { api } from "@/lib/api";
@@ -21,6 +22,7 @@ export default function Incidents() {
   const [e, setE] = useState<string>();
   const [msg, setMsg] = useState<string>();
   const [open, setOpen] = useState<string>();
+  const dlg = useDialog();
   const [vars, setVars] = useState("");
   const act = async (i: Incident, action: string) => {
     setE(undefined); setMsg(undefined);
@@ -36,6 +38,7 @@ export default function Incidents() {
   return (
     <Page title={t("Incidents")} actions={st === "open" && (data?.length ?? 0) > 0 &&
       <button className="btn-o" onClick={() => api.post<{ retried: number }>("/api/incidents-retry-all").then((r) => { setMsg(`Retried ${r.retried}`); reload(); }).catch((x) => setE(x.message))}>{t("Retry all")}</button>}>
+      {dlg.node}
       <div className="filters">
         <Dropdown value={st} onChange={setSt} options={[{ value: "open", label: t("Open") }, { value: "resolved", label: t("Resolved") }, { value: "", label: t("All") }]} />
       </div>
@@ -56,7 +59,7 @@ export default function Incidents() {
                     {i.status === "open" && <>
                       <button className="btn-s" onClick={() => act(i, "retry")}>{t("Retry")}</button>
                       <button className="link" onClick={() => setOpen(open === i.id ? undefined : i.id)}>{t("Fix data")}</button>
-                      <button className="link danger" onClick={() => confirm("Cancel the whole case?") && act(i, "cancel")}>{t("Cancel case")}</button>
+                      <button className="link danger" onClick={async () => (await dlg.confirm(t("Cancel the whole case?"), { ok: t("Cancel case"), danger: true })) && act(i, "cancel")}>{t("Cancel case")}</button>
                     </>}
                   </td>
                 </tr>

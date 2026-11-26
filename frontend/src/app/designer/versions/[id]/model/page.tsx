@@ -1,4 +1,5 @@
 "use client";
+import { useStudioRedirect } from "@/components/StudioRedirect";
 // Case model designer (business mode): stages and which flow steps they
 // contain, the case data model with calculated fields and rules, and the
 // actions users may run outside the flow.
@@ -30,6 +31,7 @@ export default function ModelDesigner() {
   const { data: procs } = useLoad(() => api.get<ProcessDef[]>("/api/processes"));
   const [m, setM] = useState<CaseModel>({ stages: [], data: [], rules: [], actions: [] });
   const inStudio = !!prm.vid;
+  useStudioRedirect(id, inStudio, "data");
   const [tab, setTab] = useState<Tab>(() => {
     if (typeof window === "undefined") return "stages";
     const seg = location.pathname.split("/")[4];
