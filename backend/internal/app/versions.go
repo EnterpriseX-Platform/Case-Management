@@ -111,6 +111,7 @@ func (s *Service) Clone(ctx context.Context, by Actor, vid string, fy int) (*sto
 		return nil, err
 	}
 	v.ClonedFrom = src.ID
+	v.Model = src.Model
 	if err := s.S.PutVersion(ctx, v); err != nil {
 		return nil, err
 	}
@@ -178,6 +179,9 @@ func (s *Service) Transition(ctx context.Context, by Actor, vid, action string) 
 				return invalid("cannot publish: %d element(s) not executable yet (first: %s %s)", len(u), u[0].ID, u[0].Type)
 			}
 			if err := s.checkBindings(ctx, v, p); err != nil {
+				return err
+			}
+			if err := ValidateModel(v.Model, p); err != nil {
 				return err
 			}
 			vs, err := s.S.ListVersions(ctx, v.ProcessKey)

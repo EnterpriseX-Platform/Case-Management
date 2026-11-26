@@ -1,0 +1,49 @@
+{
+  "stages": [
+    {
+      "key": "request",
+      "name": "ยื่นคำขอ",
+      "kind": "primary",
+      "steps": [
+        "justification",
+        "limit_check",
+        "gw_limit"
+      ]
+    },
+    {
+      "key": "approval",
+      "name": "อนุมัติ",
+      "kind": "primary",
+      "steps": [
+        "approve"
+      ]
+    },
+    {
+      "key": "fulfilment",
+      "name": "จัดซื้อ",
+      "kind": "primary",
+      "steps": [
+        "purchase"
+      ]
+    },
+    {
+      "key": "closed",
+      "name": "ปิดเรื่อง",
+      "kind": "resolution",
+      "steps": [
+        "end",
+        "rejected"
+      ]
+    }
+  ],
+  "data": [
+    {
+      "key": "amount",
+      "label": "วงเงิน",
+      "type": "money",
+      "required": true,
+      "summary": true
+    }
+  ],
+  "actions": []
+}

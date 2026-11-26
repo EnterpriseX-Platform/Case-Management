@@ -86,6 +86,9 @@ main_nodes = [
     {"id": "accounting", "type": "manualTask", "name": "บันทึกบัญชี", "x": 8*D, "y": Y,
      "attrs": {"cm:role": "finance", "cm:form": "accounting-form"}},
     {"id": "end", "type": "endEvent", "name": "ปิดคำขอ", "x": 9*D, "y": Y},
+    {"id": "withdrawn", "type": "manualTask", "name": "บันทึกการถอนคำขอ", "x": 7*D, "y": Y + 200,
+     "attrs": {"cm:role": "requester", "cm:form": "note-form"}},
+    {"id": "withdrawn_end", "type": "endEvent", "name": "ถอนคำขอแล้ว", "x": 8*D, "y": Y + 200},
 ]
 main_flows = [
     ("f1", "start", "request"), ("f2", "request", "review"), ("f3", "review", "approve"),
@@ -93,6 +96,7 @@ main_flows = [
     ("f_ok", "gw_limit", "purchase", "${withinLimit == true}"), ("f_over", "gw_limit", "revise"),
     ("f6", "revise", "limit_check"), ("f7", "purchase", "receive"), ("f8", "receive", "accounting"),
     ("f9", "accounting", "end"), ("f10", "review_reminder", "follow_up"), ("f11", "follow_up", "follow_end"),
+    ("f12", "withdrawn", "withdrawn_end"),
 ]
 sup_nodes = [
     {"id": "start", "type": "startEvent", "name": "มีความจำเป็นเร่งด่วน", "x": 0, "y": Y},
@@ -143,6 +147,11 @@ forms = {
         F("amount", "วงเงิน (บาท)", "money", required=True, min=0),
         F("necessity", "เหตุผลความเร่งด่วน", "textarea", required=True)]),
     "note-form": ("บันทึกการติดตาม", [F("note", "บันทึก", "textarea", required=True)]),
+    "details-form": ("แก้ไขรายละเอียดคำขอ", [
+        F("priority", "ความเร่งด่วน", "radio", required=True, options=[{"value": "normal", "label": "ปกติ"}, {"value": "urgent", "label": "ด่วน"}]),
+        F("note", "หมายเหตุ", "textarea")]),
+    "withdraw-form": ("ถอนคำขอ", [F("withdrawReason", "เหตุผลการถอน", "textarea", required=True)]),
+    "sub-request-form": ("คำขอย่อยเร่งด่วน", [F("title", "ชื่อคำขอย่อย", "text", required=True)]),
 }
 
 screens = {
@@ -165,12 +174,61 @@ bindings_main = [
     {"nodeId": "accounting", "ui": "form", "formKey": "accounting-form", "screenKey": "task-standard"},
 ]
 
+model_main = {
+    "stages": [
+        {"key": "request", "name": "ยื่นคำขอ", "kind": "primary", "steps": ["request"]},
+        {"key": "review", "name": "ให้ความเห็น", "kind": "primary", "sla": "P7D",
+         "steps": ["review", "review_reminder", "follow_up", "follow_end"]},
+        {"key": "approval", "name": "อนุมัติ", "kind": "primary", "sla": "P5D",
+         "steps": ["approve", "limit_check", "gw_limit", "revise"]},
+        {"key": "fulfilment", "name": "จัดซื้อและตรวจรับ", "kind": "primary", "steps": ["purchase", "receive", "accounting"]},
+        {"key": "withdrawn", "name": "ถอนคำขอ", "kind": "alternate", "entry": "withdrawn", "steps": ["withdrawn"]},
+        {"key": "closed", "name": "ปิดเรื่อง", "kind": "resolution", "steps": ["end", "withdrawn_end"]},
+    ],
+    "data": [
+        {"key": "amount", "label": "วงเงินที่ขอ", "type": "money", "required": True, "summary": True, "searchable": True},
+        {"key": "vat", "label": "ภาษีมูลค่าเพิ่ม", "type": "money", "calc": "amount != nil ? amount * 0.07 : nil"},
+        {"key": "total", "label": "รวมทั้งสิ้น", "type": "money", "calc": "amount != nil ? amount + vat : nil", "summary": True},
+        {"key": "reviewers", "label": "หน่วยงานที่ให้ความเห็น", "type": "list"},
+        {"key": "priority", "label": "ความเร่งด่วน", "type": "enum", "summary": True,
+         "options": [{"value": "normal", "label": "ปกติ"}, {"value": "urgent", "label": "ด่วน"}]},
+        {"key": "approvedAmount", "label": "วงเงินที่อนุมัติ", "type": "money", "requiredIn": ["fulfilment"], "required": True},
+        {"key": "withinLimit", "label": "อยู่ในวงเงินอำนาจ", "type": "boolean"},
+        {"key": "poNumber", "label": "เลขที่ใบสั่งซื้อ", "type": "text", "searchable": True},
+        {"key": "vendor", "label": "ผู้ขาย", "type": "text", "searchable": True},
+    ],
+    "rules": [
+        {"when": "approvedAmount != nil && amount != nil", "check": "approvedAmount <= amount",
+         "message": "วงเงินที่อนุมัติต้องไม่เกินวงเงินที่ขอ"},
+    ],
+    "actions": [
+        {"key": "update-details", "label": "แก้ไขรายละเอียด", "kind": "update", "formKey": "details-form",
+         "stages": ["request", "review", "approval"]},
+        {"key": "withdraw", "label": "ถอนคำขอ", "kind": "stage", "target": "withdrawn", "formKey": "withdraw-form",
+         "stages": ["request", "review", "approval"], "roles": ["requester"], "confirm": True},
+        {"key": "sub-request", "label": "เปิดคำขอย่อยเร่งด่วน", "kind": "child", "target": "purchase-request-urgent",
+         "formKey": "sub-request-form", "stages": ["approval", "fulfilment"], "pass": ["amount"]},
+    ],
+}
+model_urgent = {
+    "stages": [
+        {"key": "request", "name": "ยื่นคำขอ", "kind": "primary", "steps": ["justification", "limit_check", "gw_limit"]},
+        {"key": "approval", "name": "อนุมัติ", "kind": "primary", "steps": ["approve"]},
+        {"key": "fulfilment", "name": "จัดซื้อ", "kind": "primary", "steps": ["purchase"]},
+        {"key": "closed", "name": "ปิดเรื่อง", "kind": "resolution", "steps": ["end", "rejected"]},
+    ],
+    "data": [{"key": "amount", "label": "วงเงิน", "type": "money", "required": True, "summary": True}],
+    "actions": [],
+}
+
 def main():
     os.makedirs(os.path.join(HERE, "flows"), exist_ok=True)
     files = {
         "flows/purchase-request.bpmn": bpmn("purchase_request", "คำขอจัดซื้อ", main_nodes, main_flows),
         "flows/purchase-request-urgent.bpmn": bpmn("purchase_request_urgent", "คำขอจัดซื้อเร่งด่วน", sup_nodes, sup_flows),
         "bindings/purchase-request.json": json.dumps(bindings_main, ensure_ascii=False, indent=2),
+        "models/purchase-request.json": json.dumps(model_main, ensure_ascii=False, indent=2),
+        "models/purchase-request-urgent.json": json.dumps(model_urgent, ensure_ascii=False, indent=2),
     }
     for k, (name, fields) in forms.items():
         files[f"forms/{k}.json"] = json.dumps({"key": k, "name": name, "schema": {"fields": fields}}, ensure_ascii=False, indent=2)
@@ -180,9 +238,11 @@ def main():
         "name": "Purchase Request Sample", "version": "1.0.0",
         "processes": [
             {"key": "purchase-request", "name": "คำขอจัดซื้อ", "category": "procurement",
-             "bpmn": "flows/purchase-request.bpmn", "bindings": "bindings/purchase-request.json"},
+             "bpmn": "flows/purchase-request.bpmn", "bindings": "bindings/purchase-request.json",
+             "model": "models/purchase-request.json"},
             {"key": "purchase-request-urgent", "name": "คำขอจัดซื้อเร่งด่วน", "category": "procurement",
-             "parentKey": "purchase-request", "bpmn": "flows/purchase-request-urgent.bpmn"}],
+             "parentKey": "purchase-request", "bpmn": "flows/purchase-request-urgent.bpmn",
+             "model": "models/purchase-request-urgent.json"}],
         "forms": ["forms/*.json"], "screens": ["screens/*.json"]}, ensure_ascii=False, indent=2)
     for name, body in files.items():
         p = os.path.join(HERE, name)

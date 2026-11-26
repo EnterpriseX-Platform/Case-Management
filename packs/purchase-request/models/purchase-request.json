@@ -1,0 +1,184 @@
+{
+  "stages": [
+    {
+      "key": "request",
+      "name": "ยื่นคำขอ",
+      "kind": "primary",
+      "steps": [
+        "request"
+      ]
+    },
+    {
+      "key": "review",
+      "name": "ให้ความเห็น",
+      "kind": "primary",
+      "sla": "P7D",
+      "steps": [
+        "review",
+        "review_reminder",
+        "follow_up",
+        "follow_end"
+      ]
+    },
+    {
+      "key": "approval",
+      "name": "อนุมัติ",
+      "kind": "primary",
+      "sla": "P5D",
+      "steps": [
+        "approve",
+        "limit_check",
+        "gw_limit",
+        "revise"
+      ]
+    },
+    {
+      "key": "fulfilment",
+      "name": "จัดซื้อและตรวจรับ",
+      "kind": "primary",
+      "steps": [
+        "purchase",
+        "receive",
+        "accounting"
+      ]
+    },
+    {
+      "key": "withdrawn",
+      "name": "ถอนคำขอ",
+      "kind": "alternate",
+      "entry": "withdrawn",
+      "steps": [
+        "withdrawn"
+      ]
+    },
+    {
+      "key": "closed",
+      "name": "ปิดเรื่อง",
+      "kind": "resolution",
+      "steps": [
+        "end",
+        "withdrawn_end"
+      ]
+    }
+  ],
+  "data": [
+    {
+      "key": "amount",
+      "label": "วงเงินที่ขอ",
+      "type": "money",
+      "required": true,
+      "summary": true,
+      "searchable": true
+    },
+    {
+      "key": "vat",
+      "label": "ภาษีมูลค่าเพิ่ม",
+      "type": "money",
+      "calc": "amount != nil ? amount * 0.07 : nil"
+    },
+    {
+      "key": "total",
+      "label": "รวมทั้งสิ้น",
+      "type": "money",
+      "calc": "amount != nil ? amount + vat : nil",
+      "summary": true
+    },
+    {
+      "key": "reviewers",
+      "label": "หน่วยงานที่ให้ความเห็น",
+      "type": "list"
+    },
+    {
+      "key": "priority",
+      "label": "ความเร่งด่วน",
+      "type": "enum",
+      "summary": true,
+      "options": [
+        {
+          "value": "normal",
+          "label": "ปกติ"
+        },
+        {
+          "value": "urgent",
+          "label": "ด่วน"
+        }
+      ]
+    },
+    {
+      "key": "approvedAmount",
+      "label": "วงเงินที่อนุมัติ",
+      "type": "money",
+      "requiredIn": [
+        "fulfilment"
+      ],
+      "required": true
+    },
+    {
+      "key": "withinLimit",
+      "label": "อยู่ในวงเงินอำนาจ",
+      "type": "boolean"
+    },
+    {
+      "key": "poNumber",
+      "label": "เลขที่ใบสั่งซื้อ",
+      "type": "text",
+      "searchable": true
+    },
+    {
+      "key": "vendor",
+      "label": "ผู้ขาย",
+      "type": "text",
+      "searchable": true
+    }
+  ],
+  "rules": [
+    {
+      "when": "approvedAmount != nil && amount != nil",
+      "check": "approvedAmount <= amount",
+      "message": "วงเงินที่อนุมัติต้องไม่เกินวงเงินที่ขอ"
+    }
+  ],
+  "actions": [
+    {
+      "key": "update-details",
+      "label": "แก้ไขรายละเอียด",
+      "kind": "update",
+      "formKey": "details-form",
+      "stages": [
+        "request",
+        "review",
+        "approval"
+      ]
+    },
+    {
+      "key": "withdraw",
+      "label": "ถอนคำขอ",
+      "kind": "stage",
+      "target": "withdrawn",
+      "formKey": "withdraw-form",
+      "stages": [
+        "request",
+        "review",
+        "approval"
+      ],
+      "roles": [
+        "requester"
+      ],
+      "confirm": true
+    },
+    {
+      "key": "sub-request",
+      "label": "เปิดคำขอย่อยเร่งด่วน",
+      "kind": "child",
+      "target": "purchase-request-urgent",
+      "formKey": "sub-request-form",
+      "stages": [
+        "approval",
+        "fulfilment"
+      ],
+      "pass": [
+        "amount"
+      ]
+    }
+  ]
+}

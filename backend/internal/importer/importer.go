@@ -25,13 +25,14 @@ import (
 )
 
 type ProcessItem struct {
-	Key        string          `json:"key"`
-	Name       string          `json:"name"`
-	Category   string          `json:"category,omitempty"`
-	ParentKey  string          `json:"parentKey,omitempty"`
-	FiscalYear int             `json:"fiscalYear,omitempty"`
-	BPMN       string          `json:"-"`
-	Bindings   []store.Binding `json:"bindings,omitempty"`
+	Key        string           `json:"key"`
+	Name       string           `json:"name"`
+	Category   string           `json:"category,omitempty"`
+	ParentKey  string           `json:"parentKey,omitempty"`
+	FiscalYear int              `json:"fiscalYear,omitempty"`
+	BPMN       string           `json:"-"`
+	Bindings   []store.Binding  `json:"bindings,omitempty"`
+	Model      *store.CaseModel `json:"model,omitempty"`
 }
 
 type Bundle struct {
@@ -171,6 +172,7 @@ type manifest struct {
 		ProcessItem
 		BPMNFile    string `json:"bpmn"`
 		BindingFile string `json:"bindings"`
+		ModelFile   string `json:"model"`
 	} `json:"processes"`
 	Forms   []string `json:"forms"`
 	Screens []string `json:"screens"`
@@ -232,6 +234,13 @@ func parsePack(data []byte) (*Bundle, error) {
 				return nil, fmt.Errorf("pack %s: %w", p.BindingFile, err)
 			}
 		}
+		if p.ModelFile != "" {
+			var m store.CaseModel
+			if err := json.Unmarshal(files[path.Clean(p.ModelFile)], &m); err != nil {
+				return nil, fmt.Errorf("pack %s: %w", p.ModelFile, err)
+			}
+			item.Model = &m
+		}
 		b.Processes = append(b.Processes, item)
 	}
 	for _, pat := range m.Forms {
@@ -290,6 +299,11 @@ func Commit(ctx context.Context, s *app.Service, by app.Actor, b *Bundle, fileNa
 			v, _, err := s.CreateDraft(ctx, by, p.Key, p.BPMN, "imported from "+fileName, p.FiscalYear)
 			if err != nil {
 				return fmt.Errorf("case type %s: %w", p.Key, err)
+			}
+			if p.Model != nil {
+				if _, err := s.PutModel(ctx, by, v.ID, p.Model); err != nil {
+					return fmt.Errorf("case model %s: %w", p.Key, err)
+				}
 			}
 			if len(p.Bindings) > 0 {
 				if err := s.PutBindings(ctx, by, v.ID, p.Bindings); err != nil {

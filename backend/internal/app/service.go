@@ -347,6 +347,11 @@ func (s *Service) applyOnce(ctx context.Context, by Actor, c *store.Case, p *bpm
 			return nil, err
 		}
 	}
+	if fx.Completed && c.ParentID != "" && in.ParentToken == "" {
+		if err := s.notifyParent(ctx, by, c); err != nil {
+			return nil, err
+		}
+	}
 	if fx.Completed && c.ParentID != "" && in.ParentToken != "" {
 		parent, err := s.S.GetCase(ctx, c.ParentID)
 		if err == nil && parent.Instance.Status == engine.Running {
@@ -555,6 +560,11 @@ func (s *Service) Complete(ctx context.Context, by Actor, workID string, data ma
 		p, _, err := s.Process(ctx, c.VersionID)
 		if err != nil {
 			return err
+		}
+		if v, err := s.S.GetVersion(ctx, c.VersionID); err == nil {
+			if err := applyData(v.Model, c.Instance.Vars, data); err != nil {
+				return err
+			}
 		}
 		fx, err := s.E.CompleteTask(ctx, p, c.Instance, w.TokenID, by.ID, data)
 		if err != nil {

@@ -42,6 +42,7 @@ export default function FlowEditor() {
     <Page title={`${v.processKey} v${v.no}`} actions={<>
       <Status s={v.status} />
       <Link className="btn-o" href={`/designer/${v.processKey}`}>{t("All versions")}</Link>
+      <Link className="btn-o" href={`/designer/versions/${id}/model`}>{t("Case model")}</Link>
       <Link className="btn-o" href={`/designer/versions/${id}/mapping`}>{t("Step screens")}</Link>
       <button className="btn-o" onClick={download}>{t("Export BPMN")}</button>
       {draft && <button className="btn" onClick={save}>{t("Save")}</button>}

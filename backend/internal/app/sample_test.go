@@ -180,6 +180,23 @@ func TestVersionPerFiscalYearAndMigration(t *testing.T) {
 	if err := s.PutBindings(ctx, designer, v2.ID, []store.Binding{{NodeID: "approve_v2", UI: engine.UIForm, FormKey: "approval-form", ScreenKey: "task-approval"}}); err != nil {
 		t.Fatal(err)
 	}
+	// …and the case model must follow the rename too
+	v2r, _ := s.S.GetVersion(ctx, v2.ID)
+	m := *v2r.Model
+	m.Stages = append([]store.Stage(nil), m.Stages...)
+	for i := range m.Stages {
+		var steps []string
+		for _, n := range m.Stages[i].Steps {
+			if n == "approve" {
+				n = "approve_v2"
+			}
+			steps = append(steps, n)
+		}
+		m.Stages[i].Steps = steps
+	}
+	if _, err := s.PutModel(ctx, designer, v2.ID, &m); err != nil {
+		t.Fatal(err)
+	}
 	publish(t, s, ctx, v2.ID)
 
 	// both years have their own published version

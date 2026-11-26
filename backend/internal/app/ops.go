@@ -88,6 +88,7 @@ func (s *Service) persist(ctx context.Context, c *store.Case, p *bpmn.Process) e
 		}
 		in.History = nil
 	}
+	s.trackStage(ctx, c, p)
 	var open []*store.IncidentRec
 	if c.Incidents > 0 {
 		var err error

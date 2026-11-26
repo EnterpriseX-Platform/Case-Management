@@ -1,12 +1,12 @@
 import { t } from "./i18n";
-export const statusTH: Record<string, string> = {
-  draft: "Draft", in_review: "In review", approved: "Approved", published: "Enabled", deprecated: "Deprecate",
-  archived: "Archive", running: "In progress", completed: "Completed", failed: "Failed", cancelled: "Cancel",
+export const statusLabel: Record<string, string> = {
+  draft: "Draft", in_review: "In review", approved: "Approved", published: "Published", deprecated: "Deprecated",
+  archived: "Archived", running: "In progress", completed: "Completed", failed: "Failed", cancelled: "Cancelled",
   open: "Unassigned", claimed: "Claimed", done: "Done",
 };
 
 export function th(s?: string) {
-  return (s && t(statusTH[s] ?? s)) || "-";
+  return (s && t(statusLabel[s] ?? s)) || "-";
 }
 
 export function dt(s?: string) {

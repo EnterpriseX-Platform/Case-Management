@@ -40,6 +40,7 @@ export default function Mapping() {
   return (
     <Page title={`Step screens · ${v?.processKey ?? ""} v${v?.no ?? ""}`} actions={<>
       {v && <Status s={v.status} />}
+      <Link className="btn-o" href={`/designer/versions/${id}/model`}>{t("Case model")}</Link>
       <Link className="btn-o" href={`/designer/versions/${id}`}>{t("Edit flow")}</Link>
       <button className="btn" onClick={save}>{t("Save")}</button>
     </>}>

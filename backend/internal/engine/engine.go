@@ -1050,6 +1050,22 @@ func (e *Engine) Cancel(ctx context.Context, p *bpmn.Process, in *Instance, by s
 	return r.fx
 }
 
+// Jump cancels every active token and restarts the case at node (used to
+// enter an alternate stage such as "Withdrawn" from a case action).
+func (e *Engine) Jump(ctx context.Context, p *bpmn.Process, in *Instance, node, by string) (*Effects, error) {
+	r, err := e.load(ctx, p, in, by)
+	if err != nil {
+		return nil, err
+	}
+	if p.Nodes[node] == nil {
+		return nil, fmt.Errorf("engine: unknown node %s", node)
+	}
+	r.cancelScope("")
+	r.log(node, "migrate", "")
+	r.q = append(r.q, &Token{ID: r.tid(), Node: node})
+	return r.fx, r.drain()
+}
+
 // MoveToken relocates a waiting token (used by version migration and by
 // supervisors to send a case back to an earlier step).
 func (e *Engine) MoveToken(ctx context.Context, p *bpmn.Process, in *Instance, tokenID, toNode, by string) (*Effects, error) {

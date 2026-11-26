@@ -88,5 +88,8 @@ func ParseDuration(s string) (time.Duration, error) {
 	return d, nil
 }
 
+// EvalAny evaluates an expression against case variables.
+func EvalAny(src string, vars map[string]any) (any, error) { return evalAny(src, vars) }
+
 // EvalBool evaluates a boolean expression against case variables.
 func EvalBool(src string, vars map[string]any) (bool, error) { return evalBool(src, vars) }

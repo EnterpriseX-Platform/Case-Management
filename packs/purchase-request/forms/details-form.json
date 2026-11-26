@@ -1,0 +1,29 @@
+{
+  "key": "details-form",
+  "name": "แก้ไขรายละเอียดคำขอ",
+  "schema": {
+    "fields": [
+      {
+        "key": "priority",
+        "label": "ความเร่งด่วน",
+        "type": "radio",
+        "required": true,
+        "options": [
+          {
+            "value": "normal",
+            "label": "ปกติ"
+          },
+          {
+            "value": "urgent",
+            "label": "ด่วน"
+          }
+        ]
+      },
+      {
+        "key": "note",
+        "label": "หมายเหตุ",
+        "type": "textarea"
+      }
+    ]
+  }
+}

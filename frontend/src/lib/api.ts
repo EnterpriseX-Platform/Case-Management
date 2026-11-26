@@ -105,7 +105,7 @@ export type History = { at: string; node: string; event: string; token: string; 
 export type Instance = { id: string; status: string; vars: Record<string, unknown>; tokens: Token[] | null; history: History[]; error?: string };
 export type Case = {
   id: string; number: string; processKey: string; versionId: string; title: string; fiscalYear?: number;
-  parentId?: string; status: string; instance: Instance; createdBy: string; createdAt: string; updatedAt: string;
+  parentId?: string; status: string; instance: Instance; stage?: string; relatedIds?: string[]; createdBy: string; createdAt: string; updatedAt: string;
 };
 export type Work = {
   id: string; instanceId: string; tokenId: string; node: string; name: string; role?: string; assignee?: string;
@@ -114,3 +114,19 @@ export type Work = {
   status: string; createdAt: string; completedBy?: string; completedAt?: string;
 };
 export type Audit = { at: string; actor: string; action: string; entity: string; ref: string; data?: Record<string, unknown> };
+
+// ---- case model ----
+export type StageDef = { key: string; name: string; kind: "primary" | "alternate" | "resolution"; steps: string[]; entry?: string; sla?: string };
+export type DataFieldDef = {
+  key: string; label: string; type: string; required?: boolean; requiredIn?: string[];
+  options?: { value: string; label: string }[]; calc?: string; searchable?: boolean; summary?: boolean; help?: string;
+};
+export type DataRuleDef = { when?: string; check: string; message: string };
+export type ActionDef = {
+  key: string; label: string; kind: "update" | "stage" | "child"; target?: string; formKey?: string;
+  stages?: string[]; roles?: string[]; pass?: string[]; confirm?: boolean;
+};
+export type CaseModel = { stages: StageDef[]; data: DataFieldDef[]; rules?: DataRuleDef[]; actions: ActionDef[] };
+export type StageView = { key: string; name: string; kind: string; state: "done" | "current" | "upcoming" | "skipped"; entered?: string; left?: string; dueAt?: string };
+export type ActionView = ActionDef & { allowed: boolean };
+export type EventRec = { seq: number; at: string; type: string; node?: string; token?: string; by?: string; data?: Record<string, unknown> };

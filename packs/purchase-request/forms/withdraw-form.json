@@ -1,0 +1,14 @@
+{
+  "key": "withdraw-form",
+  "name": "ถอนคำขอ",
+  "schema": {
+    "fields": [
+      {
+        "key": "withdrawReason",
+        "label": "เหตุผลการถอน",
+        "type": "textarea",
+        "required": true
+      }
+    ]
+  }
+}

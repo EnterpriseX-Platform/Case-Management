@@ -15,6 +15,8 @@
     <userTask id="receive" name="ตรวจรับพัสดุ" cm:role="requester" cm:form="receive-form" cm:sla="P7D"></userTask>
     <manualTask id="accounting" name="บันทึกบัญชี" cm:role="finance" cm:form="accounting-form"></manualTask>
     <endEvent id="end" name="ปิดคำขอ"></endEvent>
+    <manualTask id="withdrawn" name="บันทึกการถอนคำขอ" cm:role="requester" cm:form="note-form"></manualTask>
+    <endEvent id="withdrawn_end" name="ถอนคำขอแล้ว"></endEvent>
     <sequenceFlow id="f1" sourceRef="start" targetRef="request"/>
     <sequenceFlow id="f2" sourceRef="request" targetRef="review"/>
     <sequenceFlow id="f3" sourceRef="review" targetRef="approve"/>
@@ -28,6 +30,7 @@
     <sequenceFlow id="f9" sourceRef="accounting" targetRef="end"/>
     <sequenceFlow id="f10" sourceRef="review_reminder" targetRef="follow_up"/>
     <sequenceFlow id="f11" sourceRef="follow_up" targetRef="follow_end"/>
+    <sequenceFlow id="f12" sourceRef="withdrawn" targetRef="withdrawn_end"/>
   </process>
   <bpmndi:BPMNDiagram id="dia_purchase_request"><bpmndi:BPMNPlane id="plane_purchase_request" bpmnElement="purchase_request">
     <bpmndi:BPMNShape id="start_di" bpmnElement="start"><dc:Bounds x="42" y="122" width="36" height="36"/></bpmndi:BPMNShape>
@@ -44,6 +47,8 @@
     <bpmndi:BPMNShape id="receive_di" bpmnElement="receive"><dc:Bounds x="1190" y="100" width="120" height="80"/></bpmndi:BPMNShape>
     <bpmndi:BPMNShape id="accounting_di" bpmnElement="accounting"><dc:Bounds x="1360" y="100" width="120" height="80"/></bpmndi:BPMNShape>
     <bpmndi:BPMNShape id="end_di" bpmnElement="end"><dc:Bounds x="1572" y="122" width="36" height="36"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="withdrawn_di" bpmnElement="withdrawn"><dc:Bounds x="1190" y="300" width="120" height="80"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="withdrawn_end_di" bpmnElement="withdrawn_end"><dc:Bounds x="1402" y="322" width="36" height="36"/></bpmndi:BPMNShape>
     <bpmndi:BPMNEdge id="f1_di" bpmnElement="f1"><di:waypoint x="78" y="140"/><di:waypoint x="170" y="140"/></bpmndi:BPMNEdge>
     <bpmndi:BPMNEdge id="f2_di" bpmnElement="f2"><di:waypoint x="290" y="140"/><di:waypoint x="340" y="140"/></bpmndi:BPMNEdge>
     <bpmndi:BPMNEdge id="f3_di" bpmnElement="f3"><di:waypoint x="460" y="140"/><di:waypoint x="510" y="140"/></bpmndi:BPMNEdge>
@@ -57,5 +62,6 @@
     <bpmndi:BPMNEdge id="f9_di" bpmnElement="f9"><di:waypoint x="1480" y="140"/><di:waypoint x="1572" y="140"/></bpmndi:BPMNEdge>
     <bpmndi:BPMNEdge id="f10_di" bpmnElement="f10"><di:waypoint x="438" y="198"/><di:waypoint x="438" y="420"/><di:waypoint x="440" y="420"/><di:waypoint x="440" y="380"/></bpmndi:BPMNEdge>
     <bpmndi:BPMNEdge id="f11_di" bpmnElement="f11"><di:waypoint x="500" y="340"/><di:waypoint x="592" y="340"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="f12_di" bpmnElement="f12"><di:waypoint x="1310" y="340"/><di:waypoint x="1402" y="340"/></bpmndi:BPMNEdge>
   </bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
 </definitions>

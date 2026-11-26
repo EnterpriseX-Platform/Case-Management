@@ -49,6 +49,7 @@ type Version struct {
 	Checksum      string        `json:"checksum"`
 	Note          string        `json:"note,omitempty"`
 	ClonedFrom    string        `json:"clonedFrom,omitempty"`
+	Model         *CaseModel    `json:"model,omitempty"`
 	CreatedBy     string        `json:"createdBy"`
 	ApprovedBy    string        `json:"approvedBy,omitempty"`
 	PublishedAt   *time.Time    `json:"publishedAt,omitempty"`
@@ -95,22 +96,24 @@ type Screen struct {
 }
 
 type Case struct {
-	ID         string           `json:"id"`
-	Number     string           `json:"number"`
-	ProcessKey string           `json:"processKey"`
-	VersionID  string           `json:"versionId"`
-	Title      string           `json:"title"`
-	FiscalYear int              `json:"fiscalYear,omitempty"`
-	ParentID   string           `json:"parentId,omitempty"`
-	RelatedIDs []string         `json:"relatedIds,omitempty"`
-	Status     string           `json:"status"`
-	Instance   *engine.Instance `json:"instance"`
-	Revision   int              `json:"revision"`             // optimistic lock, bumped by every PutCase
-	Incidents  int              `json:"incidents,omitempty"`  // open incidents (cached count)
-	Subscribed bool             `json:"subscribed,omitempty"` // has rows in the subscription index
-	CreatedBy  string           `json:"createdBy"`
-	CreatedAt  time.Time        `json:"createdAt"`
-	UpdatedAt  time.Time        `json:"updatedAt"`
+	ID           string           `json:"id"`
+	Number       string           `json:"number"`
+	ProcessKey   string           `json:"processKey"`
+	VersionID    string           `json:"versionId"`
+	Title        string           `json:"title"`
+	FiscalYear   int              `json:"fiscalYear,omitempty"`
+	ParentID     string           `json:"parentId,omitempty"`
+	RelatedIDs   []string         `json:"relatedIds,omitempty"`
+	Status       string           `json:"status"`
+	Instance     *engine.Instance `json:"instance"`
+	Revision     int              `json:"revision"` // optimistic lock, bumped by every PutCase
+	Stage        string           `json:"stage,omitempty"`
+	StageHistory []StageEntry     `json:"stageHistory,omitempty"`
+	Incidents    int              `json:"incidents,omitempty"`  // open incidents (cached count)
+	Subscribed   bool             `json:"subscribed,omitempty"` // has rows in the subscription index
+	CreatedBy    string           `json:"createdBy"`
+	CreatedAt    time.Time        `json:"createdAt"`
+	UpdatedAt    time.Time        `json:"updatedAt"`
 }
 
 type WorkStatus string

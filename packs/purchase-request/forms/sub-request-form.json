@@ -1,0 +1,14 @@
+{
+  "key": "sub-request-form",
+  "name": "คำขอย่อยเร่งด่วน",
+  "schema": {
+    "fields": [
+      {
+        "key": "title",
+        "label": "ชื่อคำขอย่อย",
+        "type": "text",
+        "required": true
+      }
+    ]
+  }
+}

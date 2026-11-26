@@ -127,6 +127,56 @@ func (s *Server) Handler() http.Handler {
 	h("GET /api/versions/{id}/diff", func(w http.ResponseWriter, r *http.Request) (any, error) {
 		return s.S.Diff(r.Context(), r.PathValue("id"), r.URL.Query().Get("to"))
 	})
+	h("GET /api/versions/{id}/model", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		v, err := s.S.S.GetVersion(r.Context(), r.PathValue("id"))
+		if err != nil {
+			return nil, err
+		}
+		if v.Model == nil {
+			return &store.CaseModel{Stages: []store.Stage{}, Data: []store.DataField{}, Actions: []store.CaseAction{}}, nil
+		}
+		return v.Model, nil
+	})
+	h("PUT /api/versions/{id}/model", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		var m store.CaseModel
+		if err := decode(r, &m); err != nil {
+			return nil, err
+		}
+		v, err := s.S.PutModel(r.Context(), actor(r), r.PathValue("id"), &m)
+		if err != nil {
+			return nil, err
+		}
+		return v.Model, nil
+	})
+	h("POST /api/cases/{id}/actions/{key}", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		var in map[string]any
+		_ = decode(r, &in)
+		if in == nil {
+			in = map[string]any{}
+		}
+		return s.S.RunAction(r.Context(), actor(r), r.PathValue("id"), r.PathValue("key"), in)
+	})
+	h("POST /api/cases/{id}/related", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		var in struct {
+			Other string `json:"other"`
+			Link  bool   `json:"link"`
+		}
+		if err := decode(r, &in); err != nil {
+			return nil, err
+		}
+		other := in.Other
+		if c, err := s.S.S.GetCase(r.Context(), other); err != nil { // allow case number
+			cs, _ := s.S.S.ListCases(r.Context(), "", "", 0)
+			for _, x := range cs {
+				if strings.EqualFold(x.Number, other) {
+					other = x.ID
+				}
+			}
+		} else {
+			other = c.ID
+		}
+		return map[string]any{"ok": true}, s.S.Relate(r.Context(), actor(r), r.PathValue("id"), other, in.Link)
+	})
 	h("GET /api/versions/{id}/steps", func(w http.ResponseWriter, r *http.Request) (any, error) {
 		return s.S.Steps(r.Context(), r.PathValue("id"))
 	})
@@ -232,7 +282,19 @@ func (s *Server) Handler() http.Handler {
 			c.Instance.History = append(c.Instance.History, engine.HistoryEntry{At: e.At, Node: e.Node, Event: e.Type, Token: e.Token, By: e.By})
 		}
 		inc, _ := s.S.S.ListIncidents(ctx, "", c.ID)
-		return map[string]any{"case": c, "work": work, "audit": audit, "version": v, "children": kids, "incidents": inc}, nil
+		stages, actions, missing := s.S.CaseOverview(ctx, actor(r), c)
+		var related []*store.Case
+		for _, rid := range c.RelatedIDs {
+			if rc, err := s.S.S.GetCase(ctx, rid); err == nil {
+				related = append(related, rc)
+			}
+		}
+		var parent *store.Case
+		if c.ParentID != "" {
+			parent, _ = s.S.S.GetCase(ctx, c.ParentID)
+		}
+		return map[string]any{"case": c, "work": work, "audit": audit, "version": v, "children": kids, "incidents": inc,
+			"stages": stages, "actions": actions, "missing": missing, "related": related, "parent": parent, "events": ev}, nil
 	})
 	h("POST /api/cases/{id}/cancel", func(w http.ResponseWriter, r *http.Request) (any, error) {
 		var in struct{ Reason string }

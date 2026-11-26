@@ -49,7 +49,7 @@ export default function Versions() {
       <Err e={error ?? e} />
       {warn.map((w) => <div key={w} className="warn">{w}</div>)}
       <table className="tbl">
-        <thead><tr><th>{t("Version")}</th><th>{t("Fiscal year")}</th><th>{t("Status")}</th><th>{t("Note")}</th><th>{t("Author")}</th><th>{t("Approver")}</th><th>{t("Published")}</th><th /></tr></thead>
+        <thead><tr><th>{t("Version")}</th><th>{t("Fiscal year")}</th><th>{t("Status")}</th><th>{t("Note")}</th><th>{t("Author")}</th><th>{t("Approver")}</th><th>{t("Published at")}</th><th /></tr></thead>
         <tbody>
           {(data ?? []).map((v) => (
             <tr key={v.id}>
@@ -58,6 +58,7 @@ export default function Versions() {
               <td><Status s={v.status} /></td>
               <td>{v.note}</td><td>{v.createdBy}</td><td>{v.approvedBy ?? "-"}</td><td className="nw">{dt(v.publishedAt)}</td>
               <td className="nw">
+                <Link className="link" href={`/designer/versions/${v.id}/model`}>{t("Case model")}</Link>
                 <Link className="link" href={`/designer/versions/${v.id}/mapping`}>{t("Step screens")}</Link>
                 {(actions[v.status] ?? []).filter((x) => has(s, x.role)).map((x) => (
                   <button key={x.a} className="link" onClick={() => act(api.post(`/api/versions/${v.id}/${x.a}`))}>{x.label}</button>
