@@ -20,10 +20,13 @@ type Insp = {
   jobs: { id: string; node: string; status: string; attempts: number; maxAttempts: number; nextRunAt: string; lastError?: string }[] | null;
   timers: { id: string; node: string; dueAt: string }[] | null;
   incidents: { id: string; nodeName: string; message: string; status: string; createdAt: string }[] | null;
-  events: { seq: number; at: string; type: string; node?: string; by?: string }[] | null; steps: Record<string, string>;
+  events: { seq: number; at: string; type: string; node?: string; by?: string }[] | null; steps: Record<string, string>; targets: string[] | null;
 };
 const WAIT: Record<string, string> = { user: "Waiting for a person", job: "Calling another system", timer: "Waiting for a time", message: "Waiting for a message",
   signal: "Waiting for a signal", incident: "Stopped by an error", join: "Waiting for parallel branches", scope: "Inside a sub-process", multi: "Per-item tasks", call: "Waiting for a sub-case", eventgw: "Waiting for the first event", condition: "Waiting for a condition" };
+
+const show = (v: unknown) =>
+  Array.isArray(v) ? v.join(", ") : typeof v === "number" ? v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : String(v);
 
 export default function Inspector() {
   const { id } = useParams<{ id: string }>();
@@ -53,7 +56,7 @@ export default function Inspector() {
     try { v = JSON.parse(edit.value); } catch {}
     api.post(`/api/cases/${id}/vars`, { vars: { [edit.key]: v }, reason: r }).then(() => { setEdit(null); done(t("Saved")); }).catch(fail);
   };
-  const nodes = Object.entries(d.steps).map(([k, v]) => ({ value: k, label: v }));
+  const nodes = (d.targets ?? []).map((k) => ({ value: k, label: d.steps[k] }));
   const openIncidents = (d.incidents ?? []).filter((i) => i.status === "open");
 
   return (
@@ -99,7 +102,7 @@ export default function Inspector() {
                   <td className="small">{k}</td>
                   <td>{edit?.key === k
                     ? <div className="row-url"><button className="btn-s" onClick={saveVar}>{t("Save")}</button><input value={edit.value} onChange={(x) => setEdit({ key: k, value: x.target.value })} /></div>
-                    : <span>{Array.isArray(v) ? v.join(", ") : String(v)}</span>}</td>
+                    : <span>{show(v)}</span>}</td>
                   <td>{running && edit?.key !== k && <button className="link" onClick={() => setEdit({ key: k, value: typeof v === "string" ? v : JSON.stringify(v) })}>{t("Edit")}</button>}</td>
                 </tr>
               ))}

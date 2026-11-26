@@ -130,19 +130,7 @@ func (s *Service) MonitorOverview(ctx context.Context, by Actor, processKey stri
 		}
 	}
 	o.CycleP50, o.CycleP90 = pct(cycles, .5), pct(cycles, .9)
-	// stage names from the latest version models
-	names := map[string]string{}
-	if vs, err := s.S.ListVersions(ctx, processKey); err == nil {
-		for _, v := range vs {
-			if v.Model != nil {
-				for _, st := range v.Model.Stages {
-					if _, ok := names[st.Key]; !ok {
-						names[st.Key] = st.Name
-					}
-				}
-			}
-		}
-	}
+	names := s.stageNames(ctx, processKey)
 	for _, v := range stage {
 		v.Name = firstNonEmpty(names[v.Key], v.Key)
 		o.ByStage = append(o.ByStage, *v)
@@ -330,11 +318,12 @@ type ExplorerFilter struct {
 
 type ExplorerRow struct {
 	*store.Case
-	Steps    []string   `json:"steps"`    // where the case waits now (step names)
-	Assignee string     `json:"assignee"` // current assignee(s)
-	DueAt    *time.Time `json:"dueAt,omitempty"`
-	Overdue  bool       `json:"overdue"`
-	Incident bool       `json:"incident"`
+	StageName string     `json:"stageName,omitempty"`
+	Steps     []string   `json:"steps"`    // where the case waits now (step names)
+	Assignee  string     `json:"assignee"` // current assignee(s)
+	DueAt     *time.Time `json:"dueAt,omitempty"`
+	Overdue   bool       `json:"overdue"`
+	Incident  bool       `json:"incident"`
 }
 
 func (s *Service) Explore(ctx context.Context, by Actor, f ExplorerFilter) ([]ExplorerRow, error) {
@@ -352,6 +341,7 @@ func (s *Service) Explore(ctx context.Context, by Actor, f ExplorerFilter) ([]Ex
 	}
 	now := s.Now()
 	q := strings.ToLower(f.Q)
+	names := s.stageNames(ctx, f.Process)
 	var out []ExplorerRow
 	for _, c := range cs {
 		if f.Status != "" && c.Status != f.Status || f.Stage != "" && c.Stage != f.Stage {
@@ -360,7 +350,7 @@ func (s *Service) Explore(ctx context.Context, by Actor, f ExplorerFilter) ([]Ex
 		if q != "" && !strings.Contains(strings.ToLower(c.Number+" "+c.Title), q) {
 			continue
 		}
-		row := ExplorerRow{Case: c}
+		row := ExplorerRow{Case: c, StageName: firstNonEmpty(names[c.Stage], c.Stage)}
 		atNode := false
 		for _, t := range c.Instance.Tokens {
 			if t.Node == f.Node {
@@ -409,7 +399,8 @@ type Inspection struct {
 	Timers    []*engine.Timer      `json:"timers"`
 	Incidents []*store.IncidentRec `json:"incidents"`
 	Events    []*store.EventRec    `json:"events"`
-	Steps     map[string]string    `json:"steps"` // node id -> name
+	Steps     map[string]string    `json:"steps"`   // node id -> name
+	Targets   []string             `json:"targets"` // activities a token can be moved to
 }
 
 func (s *Service) Inspect(ctx context.Context, by Actor, caseID string) (*Inspection, error) {
@@ -425,7 +416,11 @@ func (s *Service) Inspect(ctx context.Context, by Actor, caseID string) (*Inspec
 	if p, _, err := s.Process(ctx, c.VersionID); err == nil {
 		for id, n := range p.Nodes {
 			in.Steps[id] = firstNonEmpty(n.Name, id)
+			if bpmn.IsActivity(n.Type) {
+				in.Targets = append(in.Targets, id)
+			}
 		}
+		sort.Slice(in.Targets, func(i, j int) bool { return in.Steps[in.Targets[i]] < in.Steps[in.Targets[j]] })
 	}
 	in.Work, _ = s.S.ListWork(ctx, store.WorkFilter{CaseID: c.ID})
 	in.Jobs, _ = s.S.ListJobs(ctx, c.ID)
@@ -452,6 +447,9 @@ func (s *Service) SetVars(ctx context.Context, by Actor, caseID string, vars map
 			} else {
 				c.Instance.Vars[k] = v
 			}
+		}
+		if v, err := s.S.GetVersion(ctx, c.VersionID); err == nil && v.Model != nil {
+			recalc(v.Model, c.Instance.Vars) // keep calculated fields in step
 		}
 		s.audit(ctx, by, "case.vars", "case", c.ID, map[string]any{"before": before, "after": vars, "reason": reason})
 		fx, _, err := s.E.Signal(ctx, p, c.Instance, "data.changed", nil) // re-check conditional events
@@ -499,4 +497,36 @@ func (s *Service) Skip(ctx context.Context, by Actor, caseID, tokenID, reason st
 		}
 		return s.E.MoveToken(ctx, p, c.Instance, tokenID, next, by.ID)
 	}, by)
+}
+
+// stageNames maps stage keys to display names from the case type's version
+// models (all case types when processKey is empty).
+func (s *Service) stageNames(ctx context.Context, processKey string) map[string]string {
+	names := map[string]string{}
+	keys := []string{processKey}
+	if processKey == "" {
+		keys = nil
+		if ps, err := s.S.ListProcesses(ctx); err == nil {
+			for _, p := range ps {
+				keys = append(keys, p.Key)
+			}
+		}
+	}
+	for _, k := range keys {
+		vs, err := s.S.ListVersions(ctx, k)
+		if err != nil {
+			continue
+		}
+		for _, v := range vs {
+			if v.Model == nil {
+				continue
+			}
+			for _, st := range v.Model.Stages {
+				if _, ok := names[st.Key]; !ok {
+					names[st.Key] = st.Name
+				}
+			}
+		}
+	}
+	return names
 }

@@ -10,7 +10,7 @@ import { useLoad } from "@/lib/useLoad";
 import Dropdown from "@/components/Dropdown";
 import { Empty, Err, Page, Status } from "@/components/ui";
 
-type Row = Case & { steps?: string[] | null; assignee: string; dueAt?: string; overdue: boolean; incident: boolean };
+type Row = Case & { steps?: string[] | null; stageName?: string; assignee: string; dueAt?: string; overdue: boolean; incident: boolean };
 const KEYS = ["process", "version", "node", "stage", "status", "assignee", "sla", "q"] as const;
 
 export default function Explorer() {
@@ -47,7 +47,7 @@ export default function Explorer() {
           <tbody>{data.map((c) => (
             <tr key={c.id} className={c.overdue || c.incident ? "late" : ""}>
               <td><Link href={`/ops/cases/${c.id}`}>{c.number}</Link><div className="small muted">{c.title}</div></td>
-              <td>{c.stage ?? "-"}</td><td>{(c.steps ?? []).join(", ") || "-"}{c.incident && <div className="small late-t">{t("Incident")}</div>}</td>
+              <td>{c.stageName || c.stage || "-"}</td><td>{(c.steps ?? []).join(", ") || "-"}{c.incident && <div className="small late-t">{t("Incident")}</div>}</td>
               <td>{c.assignee || "-"}</td><td className={"nw" + (c.overdue ? " late-t" : "")}>{dt(c.dueAt)}</td><td><Status s={c.status} /></td>
             </tr>
           ))}</tbody>
