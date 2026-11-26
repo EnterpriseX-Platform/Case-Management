@@ -28,7 +28,7 @@ export default function TaskPage() {
     api.get<CaseView>(`/api/cases/${data.work.caseId}`).then(setCv).catch(() => {});
     // prefill with current case values for fields of this form
     const pre: Record<string, any> = { ...(data.work.input ?? {}) };
-    for (const f of data.form?.schema.fields ?? []) if (data.vars && f.key in data.vars && !(f.key in pre)) pre[f.key] = data.vars[f.key];
+    if (!("loopCounter" in pre)) for (const f of data.form?.schema.fields ?? []) if (data.vars && f.key in data.vars && !(f.key in pre)) pre[f.key] = data.vars[f.key];
     setD(pre);
   }, [data]);
 
@@ -45,7 +45,9 @@ export default function TaskPage() {
     setBusy(true);
     try {
       if (!mine) await api.post(`/api/work/${w.id}/claim`);
-      await api.post(`/api/work/${w.id}/complete`, d);
+      const out = { ...d };
+      for (const f of fields) if (f.type === "display" || f.type === "section") delete out[f.key];
+      await api.post(`/api/work/${w.id}/complete`, out);
       r.push("/work");
     } catch (x: any) {
       setE(x.message);

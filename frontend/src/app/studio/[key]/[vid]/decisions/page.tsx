@@ -58,7 +58,7 @@ export default function Decisions() {
         <>
           <div className="row3">
             <Field label={t("Name")}><input value={dt.name} disabled={!draft} onChange={(x) => setDT({ name: x.target.value })} /></Field>
-            <Field label={t("Key")}><input className="mono" value={dt.key} disabled={!draft} onChange={(x) => setDT({ key: slug(x.target.value) })} /></Field>
+            <div className="dev-only"><Field label={t("Key")}><input className="mono" value={dt.key} disabled={!draft} onChange={(x) => setDT({ key: slug(x.target.value) })} /></Field></div>
             <Field label={t("Hit policy")}><Dropdown options={[{ value: "first", label: t("First match") }, { value: "collect", label: t("Collect all matches") }]} value={dt.hit ?? "first"} disabled={!draft} onChange={(x) => setDT({ hit: x })} /></Field>
           </div>
           <section className="card">

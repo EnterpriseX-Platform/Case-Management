@@ -103,12 +103,12 @@ export default function ModelDesigner() {
           <section className="card mt">
             <h3>{t("Stages")}</h3>
             <table className="tbl map">
-              <thead><tr><th>{t("Name")}</th><th>{t("Key")}</th><th>{t("Type")}</th><th>{t("Steps")}</th><th>{t("Entry step")}</th><th>SLA</th><th /></tr></thead>
+              <thead><tr><th>{t("Name")}</th><th className="dev-only">{t("Key")}</th><th>{t("Type")}</th><th>{t("Steps")}</th><th>{t("Entry step")}</th><th>SLA</th><th /></tr></thead>
               <tbody>
                 {m.stages.map((s, i) => (
                   <tr key={i} onMouseEnter={() => setFocus(s.key)}>
                     <td><input value={s.name} disabled={!draft} onChange={(x) => setStage(i, { name: x.target.value, ...(s.key ? {} : { key: slug(x.target.value) }) })} /></td>
-                    <td><input value={s.key} disabled={!draft} onChange={(x) => setStage(i, { key: slug(x.target.value) })} /></td>
+                    <td className="dev-only"><input value={s.key} disabled={!draft} onChange={(x) => setStage(i, { key: slug(x.target.value) })} /></td>
                     <td><Dropdown options={KINDS} value={s.kind} disabled={!draft} onChange={(k) => setStage(i, { kind: k })} /></td>
                     <td className="small">{s.steps.map((n) => <span key={n} className="chip">{steps.find((x) => x.id === n)?.name ?? n}</span>)}</td>
                     <td><Dropdown options={stepOpts} value={s.entry} disabled={!draft} onChange={(n) => setStage(i, { entry: n })} placeholder="—" /></td>
@@ -131,7 +131,7 @@ export default function ModelDesigner() {
               <tbody>
                 {steps.map((s) => (
                   <tr key={s.id} onMouseEnter={() => setFocus(s.id)}>
-                    <td>{s.name}<div className="muted small">{s.id}</div></td>
+                    <td>{s.name}<div className="muted small dev-only">{s.id}</div></td>
                     <td className="small">{s.type}</td>
                     <td><Dropdown options={stageOpts} value={ownerOf(s.id)} disabled={!draft} onChange={(k) => assign(s.id, k)} placeholder="—" /></td>
                   </tr>
@@ -147,12 +147,12 @@ export default function ModelDesigner() {
           <section className="card">
             <h3>{t("Fields")}</h3>
             <table className="tbl map">
-              <thead><tr><th>{t("Label")}</th><th>{t("Key")}</th><th>{t("Type")}</th><th>{t("Required")}</th><th>{t("Required in")}</th><th>{t("Options")} / {t("Calculation")}</th><th>{t("Summary")}</th><th /></tr></thead>
+              <thead><tr><th>{t("Label")}</th><th className="dev-only">{t("Key")}</th><th>{t("Type")}</th><th>{t("Required")}</th><th>{t("Required in")}</th><th>{t("Options")} / {t("Calculation")}</th><th>{t("Summary")}</th><th /></tr></thead>
               <tbody>
                 {m.data.map((f, i) => (
                   <tr key={i}>
                     <td><input value={f.label} disabled={!draft} onChange={(x) => setField(i, { label: x.target.value, ...(f.key ? {} : { key: ident(x.target.value) }) })} /></td>
-                    <td><input className="mono" value={f.key} disabled={!draft} onChange={(x) => setField(i, { key: ident(x.target.value) })} /></td>
+                    <td className="dev-only"><input className="mono" value={f.key} disabled={!draft} onChange={(x) => setField(i, { key: ident(x.target.value) })} /></td>
                     <td><Dropdown options={TYPES} value={f.type} disabled={!draft} onChange={(x) => setField(i, { type: x })} /></td>
                     <td><button type="button" disabled={!draft || !!f.calc} className={"check" + (f.required ? " on" : "")} onClick={() => setField(i, { required: !f.required })}>{f.required ? "✓" : ""}</button></td>
                     <td><Dropdown multiple options={stageOpts} value={f.requiredIn ?? []} disabled={!draft || !f.required} onChange={(x) => setField(i, { requiredIn: x })} placeholder={t("Any stage")} /></td>
@@ -201,7 +201,7 @@ export default function ModelDesigner() {
             <tbody>
               {m.actions.map((a, i) => (
                 <tr key={i}>
-                  <td><input value={a.label} disabled={!draft} onChange={(x) => setAction(i, { label: x.target.value, ...(a.key ? {} : { key: slug(x.target.value) }) })} /><div className="muted small mono">{a.key}</div></td>
+                  <td><input value={a.label} disabled={!draft} onChange={(x) => setAction(i, { label: x.target.value, ...(a.key ? {} : { key: slug(x.target.value) }) })} /><div className="muted small mono dev-only">{a.key}</div></td>
                   <td><Dropdown options={ACTION_KINDS} value={a.kind} disabled={!draft} onChange={(k) => setAction(i, { kind: k, target: undefined })} /></td>
                   <td>
                     {a.kind === "stage" && <Dropdown options={stageOpts} value={a.target} disabled={!draft} onChange={(x) => setAction(i, { target: x })} />}

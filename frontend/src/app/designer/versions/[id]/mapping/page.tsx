@@ -75,7 +75,7 @@ export default function Mapping() {
             return (
               <Fragment key={r.nodeId}>
               <tr onMouseEnter={() => setFocus(r.nodeId)} className={on ? "" : "off"}>
-                <td><div>{r.name || r.nodeId}</div><div className="muted small">{r.type} · {r.nodeId}</div></td>
+                <td><div>{r.name || r.nodeId}</div><div className="muted small dev-only">{r.type} · {r.nodeId}</div></td>
                 <td>{r.human ? <Dropdown options={UI} value={b.ui} onChange={(x) => set(i, { ui: x })} /> : <span className="muted">{t("Automatic")}</span>}</td>
                 <td>
                   {r.human && b.ui === "form" && <Dropdown options={fo} value={b.formKey} onChange={(x) => set(i, { formKey: x })} placeholder={t("Select form")} />}

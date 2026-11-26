@@ -13,6 +13,7 @@ import Dropdown from "@/components/Dropdown";
 import FormRenderer, { validate } from "@/components/FormRenderer";
 import Modal from "@/components/Modal";
 import StageBar from "@/components/StageBar";
+import InlineTask from "@/components/InlineTask";
 import { Viewer } from "@/components/Bpmn";
 import { auditText } from "@/components/ScreenRenderer";
 import { Err, Page, Status } from "@/components/ui";
@@ -20,7 +21,7 @@ import { Err, Page, Status } from "@/components/ui";
 type Incident = { id: string; nodeName: string; message: string; status: string };
 type CaseView = {
   case: Case; work: Work[]; audit: Audit[]; version: Version & { model?: CaseModel }; children: Case[]; incidents?: Incident[];
-  stages?: StageView[]; actions?: ActionView[]; missing?: string[]; related?: Case[]; parent?: Case; events?: EventRec[];
+  stages?: StageView[]; actions?: ActionView[]; mine?: string[]; missing?: string[]; related?: Case[]; parent?: Case; events?: EventRec[];
 };
 type Tab = "work" | "data" | "related" | "timeline" | "flow";
 
@@ -65,6 +66,8 @@ export default function CasePage() {
   const nodes = Array.from(data.version.bpmn.matchAll(/<(userTask|manualTask|task)\s[^>]*id="([^"]+)"[^>]*name="([^"]*)"/g)).map((m) => ({ value: m[2], label: m[3] || m[2] }));
   const act = (p: Promise<unknown>, ok?: string) => p.then(() => { reload(); setE(undefined); if (ok) setMsg(ok); }).catch((x) => setE(x.message));
   const open = data.work.filter((w) => w.status === "open" || w.status === "claimed");
+  // what the viewer can do right here: assigned to them, or open in one of their queues
+  const mineNow = open.filter((w) => (data.mine ?? []).includes(w.id));
   const stageName = (k?: string) => model?.stages.find((x) => x.key === k)?.name ?? k;
   const summary = (model?.data ?? []).filter((f) => f.summary);
 
@@ -111,6 +114,8 @@ export default function CasePage() {
         {data.parent && <div className="kv1"><span>{t("Parent case")}</span><Link href={`/cases/${data.parent.id}`}>{data.parent.number}</Link></div>}
       </div>
 
+      {running && mineNow.map((w) => <InlineTask key={w.id} work={w} me={s?.id ?? ""} onDone={() => { setMsg(`${w.name}: ${t("done")}`); reload(); }} />)}
+
       <div className="tabs">
         {([["work", `${t("Open work")} (${open.length})`], ["data", t("Data")], ["related", `${t("Related")} (${data.children.length + (data.related?.length ?? 0)})`],
           ["timeline", t("Timeline")], ["flow", t("Flow diagram")]] as [Tab, string][]).map(([k, label]) => (
@@ -128,7 +133,7 @@ export default function CasePage() {
                   <tr key={w.id} className={overdue(w.dueAt) ? "late" : ""}>
                     <td><Link href={`/work/${w.id}`}>{w.name}</Link>{loopLabel(w.input)}</td>
                     <td>{stageName(model?.stages.find((x) => x.steps.includes(w.node))?.key) ?? "-"}</td>
-                    <td>{w.role}</td><td>{w.assignee || "-"}</td><td className="nw">{dt(w.dueAt)}</td>
+                    <td>{w.queue ? `${t("Queue")} ${w.queue}` : w.role}</td><td>{w.assignee || "-"}</td><td className="nw">{dt(w.dueAt)}</td>
                     <td className="nw">{sup && <button className="link" onClick={() => { setMoveTok(w.tokenId); setMoveTo(""); }}>{t("Move step")}</button>}</td>
                   </tr>
                 ))}

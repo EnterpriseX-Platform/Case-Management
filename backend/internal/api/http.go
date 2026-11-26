@@ -10,6 +10,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -44,7 +45,11 @@ func HeaderAuth(r *http.Request) (app.Actor, error) {
 			roles = append(roles, x)
 		}
 	}
-	return app.Actor{ID: u, Name: r.Header.Get("X-User-Name"), Roles: roles}, nil
+	name := r.Header.Get("X-User-Name")
+	if n, err := url.QueryUnescape(name); err == nil {
+		name = n // the web app sends names URL-encoded (header values are ASCII)
+	}
+	return app.Actor{ID: u, Name: name, Roles: roles}, nil
 }
 
 type ctxKey struct{}
@@ -440,7 +445,8 @@ func (s *Server) Handler() http.Handler {
 			parent, _ = s.S.S.GetCase(ctx, c.ParentID)
 		}
 		return map[string]any{"case": c, "work": work, "audit": audit, "version": v, "children": kids, "incidents": inc,
-			"stages": stages, "actions": actions, "missing": missing, "related": related, "parent": parent, "events": ev}, nil
+			"stages": stages, "actions": actions, "missing": missing, "related": related, "parent": parent, "events": ev,
+			"mine": s.S.WorkableBy(ctx, actor(r), work)}, nil
 	})
 	h("POST /api/cases/{id}/cancel", func(w http.ResponseWriter, r *http.Request) (any, error) {
 		var in struct{ Reason string }

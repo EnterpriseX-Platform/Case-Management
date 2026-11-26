@@ -109,8 +109,8 @@ export default function TestRun() {
           {c && <>
             <div className="fld-l mt">{t("Case data")}</div>
             <pre className="code">{JSON.stringify(c.instance.vars, null, 2)}</pre>
-            <div className="fld-l mt">{t("Tokens")}</div>
-            <pre className="code">{JSON.stringify(c.instance.tokens, null, 2)}</pre>
+            <div className="dev-only"><div className="fld-l mt">{t("Tokens")}</div>
+            <pre className="code">{JSON.stringify(c.instance.tokens, null, 2)}</pre></div>
           </>}
           {(runs ?? []).length > 0 && <>
             <div className="fld-l mt">{t("Previous runs")}</div>

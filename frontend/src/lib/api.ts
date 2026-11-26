@@ -157,3 +157,4 @@ export type Calendar = { enabled: boolean; days: number[]; start: string; end: s
 export type Notification = { id: string; at: string; kind: string; title: string; link?: string; read: boolean };
 export type Routing = { mode?: string; queue?: string; user?: string; skill?: string; expr?: string };
 export type Escalation = { at: "goal" | "deadline"; do: "notify" | "urgency" | "reassign" | "queue"; target?: string; amount?: number };
+export type Incident = { id: string; caseId: string; caseNumber: string; processKey: string; tokenId: string; node: string; nodeName: string; message: string; status: string; createdAt: string; resolvedAt?: string; resolvedBy?: string; resolution?: string };

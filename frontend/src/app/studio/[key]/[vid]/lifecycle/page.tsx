@@ -92,6 +92,16 @@ export default function LifecyclePage() {
   };
 
   const step = sel ? l.stages[sel.s]?.steps[sel.i] : undefined;
+  const allSteps = l.stages.flatMap((x) => x.steps);
+  const human = allSteps.filter((x) => x.kind === "task" || x.kind === "approval");
+  const readiness = [
+    { ok: l.stages.some((x) => x.kind === "primary" && x.steps.length > 0), text: t("The case has at least one stage with steps") },
+    { ok: human.every((x) => !!x.role), text: human.filter((x) => !x.role).length ? `${t("Steps without someone responsible")}: ${human.filter((x) => !x.role).map((x) => x.name).join(", ")}` : t("Every step has someone responsible") },
+    { ok: human.every((x) => !!x.form), text: human.filter((x) => !x.form).length ? `${t("Steps without a form")}: ${human.filter((x) => !x.form).map((x) => x.name).join(", ")}` : t("Every task has a form") },
+    { ok: allSteps.filter((x) => x.kind === "automation").every((x) => !!x.connector), text: t("Every automation calls an integration") },
+    { ok: allSteps.filter((x) => x.kind === "decision").every((x) => !!x.decision), text: t("Every decision uses a rule table") },
+    { ok: !dirty, text: dirty ? t("There are unsaved changes") : t("All changes are saved") },
+  ];
   const fieldOpts = (model?.data ?? []).map((f) => ({ value: f.key, label: f.label }));
   const targets = [{ value: "end", label: t("End the case (rejected)") }, ...l.stages.filter((x) => x.kind !== "resolution").map((x) => ({ value: x.key, label: `${t("Stage")}: ${x.name}` })),
     ...l.stages.flatMap((x) => x.steps).filter((x) => x.key !== step?.key).map((x) => ({ value: x.key, label: `${t("Step")}: ${x.name}` }))];
@@ -169,7 +179,7 @@ export default function LifecyclePage() {
               {step.kind === "timer" && <Field label={t("Wait")}><Dropdown options={SLA} value={step.sla} allowCustom disabled={!draft} onChange={(x) => setStep({ sla: x })} /></Field>}
               {step.kind === "child" && <Field label={t("Case type")}><Dropdown options={(procs ?? []).map((p) => ({ value: p.key, label: p.name }))} value={step.caseType} disabled={!draft} onChange={(x) => setStep({ caseType: x })} /></Field>}
               <Field label={t("Only when")} hint={t("e.g. ") + 'amount > 100000'}><input className="mono" value={step.when ?? ""} disabled={!draft} onChange={(x) => setStep({ when: x.target.value || undefined })} /></Field>
-              <Field label={t("Key")}><input className="mono" value={step.key} disabled={!draft} onChange={(x) => setStep({ key: slug(x.target.value) })} /></Field>
+              <div className="dev-only"><Field label={t("Key")}><input className="mono" value={step.key} disabled={!draft} onChange={(x) => setStep({ key: slug(x.target.value) })} /></Field></div>
               {draft && <>
                 <Field label={t("Stage")}><Dropdown options={l.stages.filter((x) => x.kind !== "resolution").map((x, j) => ({ value: String(j), label: x.name }))} value={String(sel!.s)}
                   onChange={(j) => moveTo(Number(j))} /></Field>
@@ -180,7 +190,14 @@ export default function LifecyclePage() {
               </>}
               {draft && <button className="btn-s danger" onClick={() => { upd({ ...l, stages: l.stages.map((x, j) => j !== sel!.s ? x : { ...x, steps: x.steps.filter((_, k) => k !== sel!.i) }) }); setSel(null); }}>{t("Remove step")}</button>}
             </>
-          ) : <div className="muted">—</div>}
+          ) : (
+            <>
+              <h3>{t("Before submitting")}</h3>
+              <ul className="checklist">
+                {readiness.map((r, i) => <li key={i} className={r.ok ? "" : "todo"}>{r.text}</li>)}
+              </ul>
+            </>
+          )}
         </aside>
       </div>
 

@@ -566,3 +566,19 @@ func (s *Service) SaveSettings(ctx context.Context, by Actor, st *store.Settings
 	s.audit(ctx, by, "settings.update", "settings", "main", nil)
 	return s.S.PutSettings(ctx, st)
 }
+
+// WorkableBy lists the ids of open work items the caller may do now
+// (assigned to them, or unassigned in one of their roles or queues).
+func (s *Service) WorkableBy(ctx context.Context, by Actor, ws []*store.Work) []string {
+	roles := s.effectiveRoles(ctx, by)
+	out := []string{}
+	for _, w := range ws {
+		if w.Status != store.WorkOpen && w.Status != store.WorkClaimed {
+			continue
+		}
+		if w.Assignee == by.ID || (w.Assignee == "" && (w.Role == "" || contains(roles, w.Role))) {
+			out = append(out, w.ID)
+		}
+	}
+	return out
+}

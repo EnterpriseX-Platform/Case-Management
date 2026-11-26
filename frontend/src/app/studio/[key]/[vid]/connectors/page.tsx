@@ -75,7 +75,7 @@ export default function Connectors() {
             <section className="card">
               <div className="row3">
                 <Field label={t("Name")}><input value={c.name} disabled={!draft} onChange={(x) => setC({ name: x.target.value })} /></Field>
-                <Field label={t("Key")}><input className="mono" value={c.key} disabled={!draft} onChange={(x) => setC({ key: slug(x.target.value) })} /></Field>
+                <div className="dev-only"><Field label={t("Key")}><input className="mono" value={c.key} disabled={!draft} onChange={(x) => setC({ key: slug(x.target.value) })} /></Field></div>
                 <Field label={t("Retries")}><input inputMode="numeric" value={c.retries ?? ""} placeholder="5" disabled={!draft} onChange={(x) => setC({ retries: Number(x.target.value) || undefined })} /></Field>
               </div>
               <div className="row-url">

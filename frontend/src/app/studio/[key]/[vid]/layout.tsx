@@ -11,8 +11,8 @@ import { has, useSession } from "@/lib/useSession";
 import { Err, Status } from "@/components/ui";
 
 const SECTIONS: { k: string; label: string; dev?: boolean }[] = [
-  { k: "lifecycle", label: "Lifecycle" }, { k: "data", label: "Data model" }, { k: "decisions", label: "Decision tables" },
-  { k: "connectors", label: "Integrations" }, { k: "actions", label: "Actions" }, { k: "screens", label: "Step screens" },
+  { k: "lifecycle", label: "Stages" }, { k: "data", label: "Data" }, { k: "screens", label: "Screens & routing" },
+  { k: "decisions", label: "Rules" }, { k: "connectors", label: "Integrations" }, { k: "actions", label: "Actions" },
   { k: "test", label: "Test run" }, { k: "flow", label: "BPMN flow", dev: true },
 ];
 const NEXT: Record<string, { a: string; label: string; role: string }[]> = {
@@ -31,6 +31,8 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
   const [e, setE] = useState<string>();
   const [dev, setDev] = useState(false);
   useEffect(() => { try { setDev(localStorage.getItem("cm.studio.dev") === "1"); } catch {} }, []);
+  // technical details (keys, ids, raw data) only show in developer mode
+  useEffect(() => { document.body.classList.toggle("dev", dev); return () => document.body.classList.remove("dev"); }, [dev]);
   const load = () => {
     api.get<ProcessDef>(`/api/processes/${key}`).then(setP).catch(() => {});
     api.get<Version>(`/api/versions/${vid}`).then(setV).catch((x) => setE(x.message));
@@ -45,7 +47,7 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
     <div className="studio">
       <div className="studio-head">
         <div>
-          <div className="small muted"><Link href="/studio">{t("App Studio")}</Link> / {key}</div>
+          <div className="small muted"><Link href="/studio">{t("Apps")}</Link>{dev && <> / <span className="mono">{key}</span></>}</div>
           <h1>{p?.name ?? key} <span className="muted">v{v?.no}</span></h1>
         </div>
         <div className="actions">
@@ -66,16 +68,14 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
         </div>
       </div>
       <Err e={e} />
-      <div className="studio-body">
-        <nav className="studio-nav">
-          {SECTIONS.filter((x) => !x.dev || dev).map((x) => (
-            <Link key={x.k} href={`/studio/${key}/${vid}/${x.k}`} className={"side-a" + (section === x.k ? " on" : "")}>{t(x.label)}</Link>
-          ))}
-          <div className="side-h">{t("Versions")}</div>
-          <Link className="side-a" href={`/designer/${key}`}>{t("All versions")}</Link>
-        </nav>
-        <div className="studio-main">{children}</div>
-      </div>
+      <nav className="studio-tabs">
+        {SECTIONS.filter((x) => !x.dev || dev).map((x) => (
+          <Link key={x.k} href={`/studio/${key}/${vid}/${x.k}`} className={section === x.k ? "on" : ""}>{t(x.label)}</Link>
+        ))}
+        <span className="hdr-sp" />
+        <Link href={`/designer/${key}`}>{t("Versions")}</Link>
+      </nav>
+      <div className="studio-main">{children}</div>
     </div>
   );
 }

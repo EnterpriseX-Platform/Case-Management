@@ -9,10 +9,7 @@ export default function Home() {
   const r = useRouter();
   useEffect(() => {
     if (!s) return;
-    if (has(s, "cm:admin")) r.replace("/admin");
-    else if (has(s, "cm:supervisor")) r.replace("/supervisor");
-    else if (has(s, "cm:designer") || has(s, "cm:approver")) r.replace("/designer");
-    else r.replace("/home");
+    r.replace("/home"); // everyone starts in the Workspace; other areas are one click away in the switcher
   }, [s, r]);
   return null;
 }
