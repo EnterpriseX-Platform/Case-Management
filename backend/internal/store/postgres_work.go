@@ -128,3 +128,13 @@ func (p *Postgres) ListOutbox(ctx context.Context, kind, status string, limit in
 	return many[OutboxMsg](ctx, p.q(ctx), `SELECT data FROM cm_outbox WHERE tenant_id=$1 AND ($2='' OR data->>'kind'=$2)
 		AND ($3='' OR status=$3) ORDER BY next_run_at DESC LIMIT $4`, p.Tenant, kind, status, limit)
 }
+
+func (p *Postgres) PutAssignRule(ctx context.Context, r *AssignRule) error {
+	return p.putDoc(ctx, "assignrule", r.ID, r)
+}
+func (p *Postgres) ListAssignRules(ctx context.Context) ([]*AssignRule, error) {
+	return many[AssignRule](ctx, p.q(ctx), `SELECT data FROM cm_doc WHERE tenant_id=$1 AND kind='assignrule' ORDER BY (data->>'order')::int, key`, p.Tenant)
+}
+func (p *Postgres) DeleteAssignRule(ctx context.Context, id string) error {
+	return p.exec(ctx, `DELETE FROM cm_doc WHERE tenant_id=$1 AND kind='assignrule' AND key=$2`, p.Tenant, id)
+}

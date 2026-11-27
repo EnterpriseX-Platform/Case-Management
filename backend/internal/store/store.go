@@ -139,6 +139,7 @@ type Work struct {
 	GoalDone      bool       `json:"goalDone,omitempty"`     // goal escalations ran
 	DeadlineDone  bool       `json:"deadlineDone,omitempty"` // deadline escalations ran
 	DelegatedFrom string     `json:"delegatedFrom,omitempty"`
+	AssignedBy    string     `json:"assignedBy,omitempty"` // distribution rule that routed this item
 	CaseID        string     `json:"caseId"`
 	CaseNumber    string     `json:"caseNumber"`
 	CaseTitle     string     `json:"caseTitle"`

@@ -14,6 +14,7 @@ type memWork struct {
 	outbox   map[string]*OutboxMsg
 	views    map[string]*WorkView
 	hooks    map[string]*Webhook
+	rules    map[string]*AssignRule
 }
 
 func (m *Memory) wk() *memWork {
@@ -251,4 +252,35 @@ func (m *Memory) ListOutbox(_ context.Context, kind, status string, limit int) (
 		out = out[:limit]
 	}
 	return out, nil
+}
+
+func (m *Memory) PutAssignRule(_ context.Context, r *AssignRule) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.wk().rules == nil {
+		m.wk().rules = map[string]*AssignRule{}
+	}
+	m.wk().rules[r.ID] = cp(r)
+	return nil
+}
+func (m *Memory) ListAssignRules(context.Context) ([]*AssignRule, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []*AssignRule
+	for _, r := range m.wk().rules {
+		out = append(out, cp(r))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Order != out[j].Order {
+			return out[i].Order < out[j].Order
+		}
+		return out[i].ID < out[j].ID
+	})
+	return out, nil
+}
+func (m *Memory) DeleteAssignRule(_ context.Context, id string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.wk().rules, id)
+	return nil
 }

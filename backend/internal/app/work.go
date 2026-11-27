@@ -103,7 +103,7 @@ func (s *Service) candidates(ctx context.Context, queue, role, skill string) []*
 
 // prepareWork applies routing, delegation, SLA goal/deadline (in business
 // time when the calendar is on) and urgency to a new work item.
-func (s *Service) prepareWork(ctx context.Context, w *store.Work, b *store.Binding, vars map[string]any, now time.Time) error {
+func (s *Service) prepareWork(ctx context.Context, w *store.Work, b *store.Binding, c *store.Case, vars map[string]any, now time.Time) error {
 	w.Urgency = defaultUrgency
 	if b != nil && b.Urgency > 0 {
 		w.Urgency = b.Urgency
@@ -121,10 +121,18 @@ func (s *Service) prepareWork(ctx context.Context, w *store.Work, b *store.Bindi
 			w.GoalAt = &g
 		}
 	}
-	if b == nil || b.Route == nil {
+	// organisation-wide distribution rules come first
+	var r *store.Routing
+	capPer := 0
+	if c != nil && !c.Test {
+		r, capPer = s.applyRule(ctx, w, c, vars, now)
+	}
+	if r == nil && b != nil {
+		r = b.Route
+	}
+	if r == nil || r.Mode == "role" {
 		return s.delegate(ctx, w)
 	}
-	r := b.Route
 	pick := func(list []*store.UserProfile) string {
 		if len(list) == 0 {
 			return ""
@@ -134,7 +142,7 @@ func (s *Service) prepareWork(ctx context.Context, w *store.Work, b *store.Bindi
 		bestN := 1 << 30
 		for _, u := range list {
 			n := counts[u.ID]
-			if u.Capacity > 0 && n >= u.Capacity {
+			if (u.Capacity > 0 && n >= u.Capacity) || (capPer > 0 && n >= capPer) {
 				continue
 			}
 			if n < bestN {
@@ -168,6 +176,16 @@ func (s *Service) prepareWork(ctx context.Context, w *store.Work, b *store.Bindi
 		}
 	case "roundrobin":
 		list := s.candidates(ctx, r.Queue, w.Role, "")
+		if capPer > 0 {
+			counts, _ := s.S.OpenCounts(ctx)
+			kept := list[:0]
+			for _, u := range list {
+				if counts[u.ID] < capPer {
+					kept = append(kept, u)
+				}
+			}
+			list = kept
+		}
 		if len(list) > 0 {
 			key := firstNonEmpty(r.Queue, "_rr-"+w.Role) // "_rr-" = internal cursor, not a real queue
 			q, err := s.S.GetQueue(ctx, key)

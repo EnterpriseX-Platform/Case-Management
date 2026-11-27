@@ -237,3 +237,54 @@ func TestVerifySignature(t *testing.T) {
 		t.Fatal("accepted without a configured secret")
 	}
 }
+
+// Distribution rules route new work: first match wins, least-loaded person,
+// cap per person, extra urgency; unmatched steps keep their own routing.
+func TestAssignRules(t *testing.T) {
+	s, ctx, _ := opsSetup(t, &flaky{})
+	boss := app.Actor{ID: "boss", Roles: []string{app.RoleSupervisor}}
+	for _, u := range []string{"s1", "s2"} {
+		if err := s.S.PutUser(ctx, &store.UserProfile{ID: u, Name: u, Roles: []string{"clerk"}, Active: true}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.S.PutQueue(ctx, &store.Queue{Key: "senior", Name: "Senior", Members: []string{"s1", "s2"}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SaveAssignRule(ctx, app.Actor{ID: "x"}, &store.AssignRule{Name: "no", Then: store.AssignAction{Mode: "keep"}}); err == nil {
+		t.Fatal("non-supervisor saved a rule")
+	}
+	if _, err := s.SaveAssignRule(ctx, boss, &store.AssignRule{Name: "bad", Then: store.AssignAction{Mode: "workload"}}); err == nil {
+		t.Fatal("workload rule without a queue accepted")
+	}
+	if _, err := s.SaveAssignRule(ctx, boss, &store.AssignRule{Name: "Big amounts to seniors", Active: true,
+		When: []store.ViewRule{{Field: "caseType", Op: "eq", Value: "ops"}, {Field: "data.amount", Op: "gt", Value: "100000"}},
+		Then: store.AssignAction{Mode: "workload", Queue: "senior", MaxPerPerson: 1, Urgency: 20, SLA: "P1D"}}); err != nil {
+		t.Fatal(err)
+	}
+	start := func(amount float64) *store.Work {
+		c, err := s.StartCase(ctx, clerk, app.StartInput{ProcessKey: "ops", FiscalYear: 2027, Vars: map[string]any{"amount": amount}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ws, _ := s.S.ListWork(ctx, store.WorkFilter{CaseID: c.ID})
+		return ws[0]
+	}
+	a, b, full, small := start(500000), start(300000), start(200000), start(50)
+	if a.Assignee == "" || b.Assignee == "" || a.Assignee == b.Assignee {
+		t.Fatalf("least-loaded: %q, %q", a.Assignee, b.Assignee)
+	}
+	if a.AssignedBy != "Big amounts to seniors" || a.Urgency <= small.Urgency || a.DueAt == nil {
+		t.Fatalf("rule effects: by=%q urgency=%d/%d due=%v", a.AssignedBy, a.Urgency, small.Urgency, a.DueAt)
+	}
+	if full.Assignee != "" || full.Queue != "senior" {
+		t.Fatalf("cap per person ignored: assignee %q queue %q", full.Assignee, full.Queue)
+	}
+	if small.AssignedBy != "" || small.Role != "clerk" {
+		t.Fatalf("unmatched step changed: by=%q role=%q", small.AssignedBy, small.Role)
+	}
+	p, err := s.PreviewAssign(ctx, boss, "ops", "fill", "", "clerk", map[string]any{"amount": 999999.0}, nil)
+	if err != nil || p.Rule != "Big amounts to seniors" || p.Assignee != "" || p.Note == "" {
+		t.Fatalf("preview: %+v %v", p, err)
+	}
+}

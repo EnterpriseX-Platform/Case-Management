@@ -29,7 +29,7 @@ export const WORKSPACES: WS[] = [
     match: (p) => /^\/(supervisor|ops|incidents)(\/|$)/.test(p),
     items: [
       { href: "/supervisor", label: "Overview" }, { href: "/ops/monitor", label: "Flow monitor" }, { href: "/ops/cases", label: "Cases" },
-      { href: "/ops/queues", label: "Work queues" },
+      { href: "/ops/queues", label: "Work queues" }, { href: "/ops/rules", label: "Work distribution" },
       { href: "/incidents", label: "Incidents", count: "incidents" },
     ],
   },

@@ -66,6 +66,7 @@ type Service struct {
 	mu    sync.Mutex
 	cache map[string]*bpmn.Process // published versions only (immutable)
 	hooks hookCache
+	rules ruleCache
 }
 
 func New(s store.Store, h engine.Handlers, secret []byte) *Service {
@@ -325,7 +326,7 @@ func (s *Service) applyOnce(ctx context.Context, by Actor, c *store.Case, p *bpm
 			}
 		}
 		b := bmap[wi.Node]
-		if err := s.prepareWork(ctx, w, &b, in.Vars, now); err != nil {
+		if err := s.prepareWork(ctx, w, &b, c, in.Vars, now); err != nil {
 			return nil, err
 		}
 		if err := s.S.PutWork(ctx, w); err != nil {

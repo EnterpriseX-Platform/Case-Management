@@ -543,6 +543,39 @@ func (s *Server) Handler() http.Handler {
 	})
 
 	// events
+	h("GET /api/assign-rules", func(w http.ResponseWriter, r *http.Request) (any, error) { return s.S.AssignRules(r.Context(), actor(r)) })
+	h("PUT /api/assign-rules/{id}", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		var ar store.AssignRule
+		if err := decode(r, &ar); err != nil {
+			return nil, err
+		}
+		if id := r.PathValue("id"); id != "new" {
+			ar.ID = id
+		}
+		return s.S.SaveAssignRule(r.Context(), actor(r), &ar)
+	})
+	h("DELETE /api/assign-rules/{id}", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		return map[string]bool{"ok": true}, s.S.DeleteAssignRule(r.Context(), actor(r), r.PathValue("id"))
+	})
+	h("POST /api/assign-rules/order", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		var in struct{ IDs []string }
+		if err := decode(r, &in); err != nil {
+			return nil, err
+		}
+		return map[string]bool{"ok": true}, s.S.OrderAssignRules(r.Context(), actor(r), in.IDs)
+	})
+	h("POST /api/assign-rules/preview", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		var in struct {
+			CaseType, Step, Stage, Role string
+			Data                        map[string]any
+			Rules                       []*store.AssignRule
+		}
+		if err := decode(r, &in); err != nil {
+			return nil, err
+		}
+		return s.S.PreviewAssign(r.Context(), actor(r), in.CaseType, in.Step, in.Stage, in.Role, in.Data, in.Rules)
+	})
+	h("GET /api/work/steps", func(w http.ResponseWriter, r *http.Request) (any, error) { return s.S.WorkSteps(r.Context()) })
 	h("GET /api/webhooks", func(w http.ResponseWriter, r *http.Request) (any, error) { return s.S.Webhooks(r.Context(), actor(r)) })
 	h("PUT /api/webhooks/{id}", func(w http.ResponseWriter, r *http.Request) (any, error) {
 		var hk store.Webhook

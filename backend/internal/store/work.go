@@ -158,6 +158,32 @@ type Webhook struct {
 	UpdatedAt   time.Time  `json:"updatedAt"`
 }
 
+// AssignRule is an organisation-wide work distribution rule. Rules are
+// checked in order and the first that matches decides: who gets the work,
+// a cap per person, extra urgency and SLA. Built in the admin screen.
+type AssignRule struct {
+	ID        string       `json:"id"`
+	Name      string       `json:"name"`
+	Order     int          `json:"order"`
+	Active    bool         `json:"active"`
+	When      []ViewRule   `json:"when"`          // fields: caseType, step, stage, role, urgency, data.<field>
+	Any       bool         `json:"any,omitempty"` // OR instead of AND
+	Then      AssignAction `json:"then"`
+	UpdatedAt time.Time    `json:"updatedAt"`
+}
+
+type AssignAction struct {
+	Mode         string `json:"mode"` // keep | role | queue | user | workload | roundrobin | skill
+	Queue        string `json:"queue,omitempty"`
+	Role         string `json:"role,omitempty"`
+	User         string `json:"user,omitempty"`
+	Skill        string `json:"skill,omitempty"`
+	MaxPerPerson int    `json:"maxPerPerson,omitempty"` // skip people with this many open items
+	Urgency      int    `json:"urgency,omitempty"`      // added to the item's urgency
+	SLA          string `json:"sla,omitempty"`          // replaces the step's deadline, ISO-8601 duration
+	Goal         string `json:"goal,omitempty"`
+}
+
 // Routing decides who gets a step's work item.
 type Routing struct {
 	Mode  string `json:"mode,omitempty"`  // role (default) | queue | user | workload | roundrobin | skill | expression
@@ -191,6 +217,10 @@ type WorkOps interface {
 	AddNotification(ctx context.Context, n *Notification) error
 	ListNotifications(ctx context.Context, user string, limit int) ([]*Notification, error)
 	MarkNotificationsRead(ctx context.Context, user string, ids []string) error
+
+	PutAssignRule(ctx context.Context, r *AssignRule) error
+	ListAssignRules(ctx context.Context) ([]*AssignRule, error)
+	DeleteAssignRule(ctx context.Context, id string) error
 
 	PutWebhook(ctx context.Context, h *Webhook) error
 	ListWebhooks(ctx context.Context) ([]*Webhook, error)
