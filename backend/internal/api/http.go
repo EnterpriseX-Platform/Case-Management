@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -33,6 +34,9 @@ type Server struct {
 	Auth func(r *http.Request) (app.Actor, error)
 	// PublicURL is used to build callback links for external screens.
 	PublicURL string
+
+	limOnce sync.Once
+	lim     *limiter
 }
 
 func HeaderAuth(r *http.Request) (app.Actor, error) {
@@ -791,8 +795,25 @@ func (s *Server) Handler() http.Handler {
 }
 
 func (s *Server) middleware(m *http.ServeMux, callback http.HandlerFunc) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	s.limOnce.Do(func() { s.lim = newLimiter() })
+	return http.HandlerFunc(func(w0 http.ResponseWriter, r *http.Request) {
 		start := time.Now()
+		tid, tp := traceparent(r.Header.Get("traceparent"))
+		r = r.WithContext(app.WithTrace(r.Context(), tid, tp))
+		w0.Header().Set("traceparent", tp)
+		w0.Header().Set("X-Request-ID", tid)
+		w := &statusWriter{ResponseWriter: w0, code: 200}
+		defer func() {
+			ms := time.Since(start).Milliseconds()
+			switch {
+			case w.code >= 500:
+				slog.ErrorContext(r.Context(), "http", "method", r.Method, "path", r.URL.Path, "status", w.code, "ms", ms)
+			case ms > 1000:
+				slog.WarnContext(r.Context(), "slow request", "method", r.Method, "path", r.URL.Path, "status", w.code, "ms", ms)
+			default:
+				slog.DebugContext(r.Context(), "http", "method", r.Method, "path", r.URL.Path, "status", w.code, "ms", ms)
+			}
+		}()
 		if o := r.Header.Get("X-HTTP-Method-Override"); o != "" && r.Method == http.MethodPost {
 			r.Method = strings.ToUpper(o)
 		}
@@ -818,10 +839,20 @@ func (s *Server) middleware(m *http.ServeMux, callback http.HandlerFunc) http.Ha
 			}
 			r = r.WithContext(context.WithValue(r.Context(), ctxKey{}, a))
 			s.S.TouchUser(r.Context(), a)
+			if ok, wait := s.lim.allow(clientKey(r, a.ID), time.Now()); !ok {
+				w.Header().Set("Retry-After", strconv.Itoa(int(wait.Seconds())+1))
+				writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too many requests, slow down"})
+				return
+			}
+		} else if strings.HasPrefix(r.URL.Path, "/api/") {
+			if ok, wait := s.lim.allow(clientKey(r, ""), time.Now()); !ok {
+				w.Header().Set("Retry-After", strconv.Itoa(int(wait.Seconds())+1))
+				writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too many requests, slow down"})
+				return
+			}
 		}
 		httpRequests.Add(1)
 		m.ServeHTTP(w, r)
-		slog.Debug("http", "method", r.Method, "path", r.URL.Path, "ms", time.Since(start).Milliseconds())
 	})
 }
 
@@ -945,4 +976,17 @@ func firstNonEmpty(v ...string) string {
 		}
 	}
 	return ""
+}
+
+// statusWriter remembers the response status for the request log.
+type statusWriter struct {
+	http.ResponseWriter
+	code int
+}
+
+func (w *statusWriter) WriteHeader(c int) { w.code = c; w.ResponseWriter.WriteHeader(c) }
+func (w *statusWriter) Flush() {
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
 }

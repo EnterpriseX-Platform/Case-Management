@@ -146,6 +146,9 @@ func CallConnector(ctx context.Context, c *store.Connector, vars map[string]any,
 	cctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(cctx, method, url, body)
+	if err == nil {
+		propagate(ctx, req)
+	}
 	if err != nil {
 		return res, err
 	}

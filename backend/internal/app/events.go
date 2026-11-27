@@ -141,6 +141,7 @@ func (s *Service) deliverWebhook(ctx context.Context, m *store.OutboxMsg) error 
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "case-management-webhook/1")
+	propagate(ctx, req)
 	req.Header.Set("X-CM-Event", m.Subject)
 	req.Header.Set("X-CM-Delivery", m.ID)
 	req.Header.Set("X-CM-Timestamp", ts)

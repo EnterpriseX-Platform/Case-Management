@@ -21,6 +21,8 @@
 //	OIDC_ROLE_PREFIX  only use roles with this prefix (prefix removed)
 //	CM_CONNECTOR_ALLOW  hosts studio connectors may call, e.g. "erp.example.com,.internal.example" (empty = any)
 //	CM_SECRET_<NAME>    secrets referenced by connectors as ${secret:NAME}
+//	LOG_FORMAT     json for one JSON object per line (default text); LOG_LEVEL=debug logs every request
+//	RATE_LIMIT     requests per second per user (default 30, burst 2x; 0 = off)
 //	DATABASE_READ_URL   read replica for reports and monitoring (optional)
 //	CM_ARCHIVE_AFTER_DAYS  move cases closed this many days ago to the archive (0 = off)
 package main
@@ -45,6 +47,7 @@ import (
 )
 
 func main() {
+	api.SetupLogging()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 

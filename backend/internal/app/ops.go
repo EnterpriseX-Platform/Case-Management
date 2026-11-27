@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -51,7 +52,7 @@ func (s *Service) applyOps(ctx context.Context, c *store.Case, p *bpmn.Process, 
 		if n := p.Nodes[j.Node]; n != nil {
 			fmt.Sscan(n.Ext["retries"], &max)
 		}
-		rec := &store.JobRec{ID: id.New(), Queue: jobQueue(p.Nodes[j.Node]), Job: j, CaseID: c.ID, Status: store.JobPending, MaxAttempts: max, NextRunAt: now, CreatedAt: now}
+		rec := &store.JobRec{ID: id.New(), Queue: jobQueue(p.Nodes[j.Node]), Trace: traceHeader(ctx), Job: j, CaseID: c.ID, Status: store.JobPending, MaxAttempts: max, NextRunAt: now, CreatedAt: now}
 		if err := s.S.PutJob(ctx, rec); err != nil {
 			return err
 		}
@@ -235,6 +236,12 @@ func (s *Service) runJob(ctx context.Context, j *store.JobRec) error {
 	n := p.Nodes[j.Node]
 	if n == nil {
 		return s.S.DeleteJob(ctx, j.ID)
+	}
+	if j.Trace != "" { // continue the trace of the request that started this work
+		parts := strings.Split(j.Trace, "-")
+		if len(parts) == 4 {
+			ctx = WithTrace(ctx, parts[1], j.Trace)
+		}
 	}
 	jctx := WithIdempotencyKey(ctx, j.ID)
 	var out map[string]any

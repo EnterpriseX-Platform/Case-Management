@@ -27,6 +27,7 @@ const (
 type JobRec struct {
 	ID    string `json:"id"`
 	Queue string `json:"queue,omitempty"` // engine | integration (empty = integration)
+	Trace string `json:"trace,omitempty"` // traceparent of the request that created the job
 	engine.Job
 	CaseID      string     `json:"caseId"`
 	Status      JobStatus  `json:"status"`
