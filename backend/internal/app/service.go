@@ -61,8 +61,11 @@ type Service struct {
 	Secret []byte // signs external-screen callback tokens
 	Now    func() time.Time
 
+	Broker Broker // optional message broker for events
+
 	mu    sync.Mutex
 	cache map[string]*bpmn.Process // published versions only (immutable)
+	hooks hookCache
 }
 
 func New(s store.Store, h engine.Handlers, secret []byte) *Service {
@@ -197,6 +200,7 @@ func (s *Service) startCase(ctx context.Context, by Actor, in StartInput, parent
 	}
 	c.Instance = inst
 	s.audit(ctx, by, "case.start", "case", c.ID, map[string]any{"version": v.No, "number": c.Number})
+	s.emit(ctx, c, "case.started", map[string]any{"by": by.ID})
 	return c, s.apply(ctx, by, c, p, fx)
 }
 
@@ -327,6 +331,7 @@ func (s *Service) applyOnce(ctx context.Context, by Actor, c *store.Case, p *bpm
 		if err := s.S.PutWork(ctx, w); err != nil {
 			return nil, err
 		}
+		s.emit(ctx, c, "work.created", map[string]any{"work": map[string]any{"id": w.ID, "step": w.Node, "name": w.Name, "role": w.Role, "queue": w.Queue, "assignee": w.Assignee}})
 		if w.Assignee != "" && !w.Test {
 			s.notify(ctx, w.Assignee, "assigned", w.CaseNumber+" · "+w.Name, "/work/"+w.ID)
 		}
@@ -612,6 +617,7 @@ func (s *Service) Complete(ctx context.Context, by Actor, workID string, data ma
 			return err
 		}
 		s.audit(ctx, by, "work.complete", "case", c.ID, map[string]any{"work": w.ID, "node": w.Node, "data": data})
+		s.emit(ctx, c, "work.completed", map[string]any{"work": map[string]any{"id": w.ID, "step": w.Node, "name": w.Name}, "by": by.ID})
 		out = c
 		return s.apply(ctx, by, c, p, fx)
 	})

@@ -13,6 +13,7 @@ type memWork struct {
 	notes    []*Notification
 	outbox   map[string]*OutboxMsg
 	views    map[string]*WorkView
+	hooks    map[string]*Webhook
 }
 
 func (m *Memory) wk() *memWork {
@@ -209,4 +210,45 @@ func (m *Memory) DeleteView(_ context.Context, id string) error {
 	defer m.mu.Unlock()
 	delete(m.wk().views, id)
 	return nil
+}
+
+func (m *Memory) PutWebhook(_ context.Context, h *Webhook) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.wk().hooks == nil {
+		m.wk().hooks = map[string]*Webhook{}
+	}
+	m.wk().hooks[h.ID] = cp(h)
+	return nil
+}
+func (m *Memory) ListWebhooks(context.Context) ([]*Webhook, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []*Webhook
+	for _, h := range m.wk().hooks {
+		out = append(out, cp(h))
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out, nil
+}
+func (m *Memory) DeleteWebhook(_ context.Context, id string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.wk().hooks, id)
+	return nil
+}
+func (m *Memory) ListOutbox(_ context.Context, kind, status string, limit int) ([]*OutboxMsg, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []*OutboxMsg
+	for _, o := range m.wk().outbox {
+		if (kind == "" || o.Kind == kind) && (status == "" || o.Status == status) {
+			out = append(out, cp(o))
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].NextRunAt.After(out[j].NextRunAt) })
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
 }

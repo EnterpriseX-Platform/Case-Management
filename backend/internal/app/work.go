@@ -535,7 +535,7 @@ var errNoMailer = errors.New("SMTP_HOST not set")
 
 const maxMailAttempts = 8
 
-// RunOutbox delivers pending e-mail. Failures retry with backoff; after
+// RunOutbox delivers pending e-mail, webhook calls and broker events. Failures retry with backoff; after
 // maxMailAttempts the message stays as failed for an operator to look at.
 // Without SMTP configured, messages are dropped (in-app notifications remain).
 func (s *Service) RunOutbox(ctx context.Context, limit int) (int, error) {
@@ -544,7 +544,17 @@ func (s *Service) RunOutbox(ctx context.Context, limit int) (int, error) {
 		return 0, err
 	}
 	for _, m := range msgs {
-		err := Mailer(m.To, m.Subject, m.Body)
+		var err error
+		switch m.Kind {
+		case "webhook":
+			err = s.deliverWebhook(ctx, m)
+		case "event":
+			if s.Broker != nil {
+				err = s.Broker.Publish(ctx, m.To, []byte(m.Body))
+			}
+		default:
+			err = Mailer(m.To, m.Subject, m.Body)
+		}
 		switch {
 		case err == nil, errors.Is(err, errNoMailer):
 			Metrics.MailSent.Add(1)

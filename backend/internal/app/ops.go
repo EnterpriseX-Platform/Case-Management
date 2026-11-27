@@ -68,6 +68,7 @@ func (s *Service) applyOps(ctx context.Context, c *store.Case, p *bpmn.Process, 
 		}
 		c.Incidents++
 		Metrics.Incidents.Add(1)
+		s.emit(ctx, c, "incident.raised", map[string]any{"incident": map[string]any{"id": rec.ID, "step": rec.Node, "name": rec.NodeName, "message": rec.Message}})
 	}
 	return nil
 }
@@ -95,6 +96,14 @@ func (s *Service) persist(ctx context.Context, c *store.Case, p *bpmn.Process) e
 		in.History = nil
 	}
 	s.trackStage(ctx, c, p, ended)
+	if !c.Closed && (in.Status == engine.Completed || in.Status == engine.Cancelled) {
+		c.Closed = true
+		ev := "case.completed"
+		if in.Status == engine.Cancelled {
+			ev = "case.cancelled"
+		}
+		s.emit(ctx, c, ev, nil)
+	}
 	var open []*store.IncidentRec
 	if c.Incidents > 0 {
 		var err error
@@ -228,7 +237,19 @@ func (s *Service) runJob(ctx context.Context, j *store.JobRec) error {
 		return s.S.DeleteJob(ctx, j.ID)
 	}
 	jctx := WithIdempotencyKey(ctx, j.ID)
-	out, handled, callErr := s.studioJob(jctx, c.VersionID, n, j.Vars)
+	var out map[string]any
+	var handled bool
+	var callErr error
+	if fn := action(n.Ext["action"]); fn != nil {
+		in := map[string]string{}
+		for k, v := range n.Ext {
+			in[k] = expand(v, j.Vars)
+		}
+		out, callErr = fn(jctx, s, c, in)
+		handled = true
+	} else {
+		out, handled, callErr = s.studioJob(jctx, c.VersionID, n, j.Vars)
+	}
 	if handled {
 		// decision table / studio connector
 	} else if j.Kind == engine.JobRule {

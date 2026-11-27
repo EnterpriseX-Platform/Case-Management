@@ -496,7 +496,9 @@ func (s *Service) trackStage(ctx context.Context, c *store.Case, p *bpmn.Process
 	}
 	c.StageHistory = append(c.StageHistory, store.StageEntry{Stage: next, At: now})
 	_ = s.S.AppendEvents(ctx, []store.EventRec{{CaseID: c.ID, At: now, Type: "stage", Node: next, Data: map[string]any{"from": c.Stage}}})
+	from := c.Stage
 	c.Stage = next
+	s.emit(ctx, c, "case.stage_changed", map[string]any{"from": from, "to": next})
 }
 
 // RunAction executes a case action for the caller.

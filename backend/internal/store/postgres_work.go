@@ -111,3 +111,20 @@ func (p *Postgres) ListViews(ctx context.Context) ([]*WorkView, error) {
 func (p *Postgres) DeleteView(ctx context.Context, id string) error {
 	return p.exec(ctx, `DELETE FROM cm_doc WHERE tenant_id=$1 AND kind='view' AND key=$2`, p.Tenant, id)
 }
+
+func (p *Postgres) PutWebhook(ctx context.Context, h *Webhook) error {
+	return p.putDoc(ctx, "webhook", h.ID, h)
+}
+func (p *Postgres) ListWebhooks(ctx context.Context) ([]*Webhook, error) {
+	return many[Webhook](ctx, p.q(ctx), `SELECT data FROM cm_doc WHERE tenant_id=$1 AND kind='webhook' ORDER BY key`, p.Tenant)
+}
+func (p *Postgres) DeleteWebhook(ctx context.Context, id string) error {
+	return p.exec(ctx, `DELETE FROM cm_doc WHERE tenant_id=$1 AND kind='webhook' AND key=$2`, p.Tenant, id)
+}
+func (p *Postgres) ListOutbox(ctx context.Context, kind, status string, limit int) ([]*OutboxMsg, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	return many[OutboxMsg](ctx, p.q(ctx), `SELECT data FROM cm_outbox WHERE tenant_id=$1 AND ($2='' OR data->>'kind'=$2)
+		AND ($3='' OR status=$3) ORDER BY next_run_at DESC LIMIT $4`, p.Tenant, kind, status, limit)
+}

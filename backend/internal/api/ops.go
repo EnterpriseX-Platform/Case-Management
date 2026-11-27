@@ -23,7 +23,7 @@ func metrics(w http.ResponseWriter, _ *http.Request) {
 	c("cm_incidents_total", "Incidents raised.", m.Incidents.Load())
 	c("cm_case_conflicts_total", "Optimistic-lock conflicts retried.", m.Conflicts.Load())
 	c("cm_timers_fired_total", "Timers fired.", m.TimersFired.Load())
-	c("cm_mail_sent_total", "E-mails delivered (or dropped without SMTP).", m.MailSent.Load())
+	c("cm_mail_sent_total", "Outbox messages delivered: e-mail (or dropped without SMTP), webhooks, broker events.", m.MailSent.Load())
 	c("cm_mail_failed_total", "E-mails given up after retries.", m.MailFailed.Load())
 	c("cm_http_requests_total", "HTTP API requests.", httpRequests.Load())
 	var ms runtime.MemStats

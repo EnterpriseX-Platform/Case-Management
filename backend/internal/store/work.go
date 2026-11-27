@@ -96,7 +96,8 @@ type Notification struct {
 // with retries, so a slow or unavailable mail server never delays case work.
 type OutboxMsg struct {
 	ID         string     `json:"id"`
-	Kind       string     `json:"kind"` // email
+	Kind       string     `json:"kind"`           // email | webhook | event
+	Hook       string     `json:"hook,omitempty"` // webhook id (kind webhook)
 	To         string     `json:"to"`
 	Subject    string     `json:"subject"`
 	Body       string     `json:"body"`
@@ -140,6 +141,23 @@ type ViewHighlight struct {
 	Color string     `json:"color"` // red | amber | blue | green
 }
 
+// Webhook sends case events to another system. The signing secret is never
+// stored: Secret names an environment variable CM_SECRET_<NAME>.
+type Webhook struct {
+	ID          string     `json:"id"`
+	Name        string     `json:"name"`
+	URL         string     `json:"url"`
+	Events      []string   `json:"events"`                // e.g. case.completed; "*" = all
+	ProcessKeys []string   `json:"processKeys,omitempty"` // only these case types (empty = all)
+	Secret      string     `json:"secret,omitempty"`      // secret name for the HMAC signature
+	IncludeData bool       `json:"includeData,omitempty"` // add case data to the payload
+	Active      bool       `json:"active"`
+	LastAt      *time.Time `json:"lastAt,omitempty"`
+	LastStatus  string     `json:"lastStatus,omitempty"`
+	LastError   string     `json:"lastError,omitempty"`
+	UpdatedAt   time.Time  `json:"updatedAt"`
+}
+
 // Routing decides who gets a step's work item.
 type Routing struct {
 	Mode  string `json:"mode,omitempty"`  // role (default) | queue | user | workload | roundrobin | skill | expression
@@ -173,6 +191,11 @@ type WorkOps interface {
 	AddNotification(ctx context.Context, n *Notification) error
 	ListNotifications(ctx context.Context, user string, limit int) ([]*Notification, error)
 	MarkNotificationsRead(ctx context.Context, user string, ids []string) error
+
+	PutWebhook(ctx context.Context, h *Webhook) error
+	ListWebhooks(ctx context.Context) ([]*Webhook, error)
+	DeleteWebhook(ctx context.Context, id string) error
+	ListOutbox(ctx context.Context, kind, status string, limit int) ([]*OutboxMsg, error)
 
 	PutView(ctx context.Context, v *WorkView) error
 	ListViews(ctx context.Context) ([]*WorkView, error)

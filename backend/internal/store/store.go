@@ -116,6 +116,7 @@ type Case struct {
 	StageHistory []StageEntry     `json:"stageHistory,omitempty"`
 	Incidents    int              `json:"incidents,omitempty"`  // open incidents (cached count)
 	Subscribed   bool             `json:"subscribed,omitempty"` // has rows in the subscription index
+	Closed       bool             `json:"closed,omitempty"`     // completion/cancellation was announced
 	CreatedBy    string           `json:"createdBy"`
 	CreatedAt    time.Time        `json:"createdAt"`
 	UpdatedAt    time.Time        `json:"updatedAt"`

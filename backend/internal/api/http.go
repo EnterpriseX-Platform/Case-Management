@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -542,6 +543,59 @@ func (s *Server) Handler() http.Handler {
 	})
 
 	// events
+	h("GET /api/webhooks", func(w http.ResponseWriter, r *http.Request) (any, error) { return s.S.Webhooks(r.Context(), actor(r)) })
+	h("PUT /api/webhooks/{id}", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		var hk store.Webhook
+		if err := decode(r, &hk); err != nil {
+			return nil, err
+		}
+		if id := r.PathValue("id"); id != "new" {
+			hk.ID = id
+		}
+		return s.S.SaveWebhook(r.Context(), actor(r), &hk)
+	})
+	h("DELETE /api/webhooks/{id}", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		return map[string]bool{"ok": true}, s.S.DeleteWebhook(r.Context(), actor(r), r.PathValue("id"))
+	})
+	h("POST /api/webhooks/{id}/test", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		return map[string]bool{"queued": true}, s.S.TestWebhook(r.Context(), actor(r), r.PathValue("id"))
+	})
+	h("GET /api/deliveries", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		return s.S.Deliveries(r.Context(), actor(r), r.URL.Query().Get("status"))
+	})
+	h("GET /api/extensions", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		return map[string]any{"events": app.EventTypes, "actions": app.Actions()}, nil
+	})
+	// Inbound message from another system, signed with CM_SECRET_INBOUND_<NAME>:
+	//   X-CM-Timestamp: unix seconds, X-CM-Signature: sha256=hex(HMAC(secret, ts + "." + body))
+	//   body: {"caseId"?, "correlationKey"?, "vars"?}
+	m.HandleFunc("POST /api/inbound/{name}", func(w http.ResponseWriter, r *http.Request) {
+		name := r.PathValue("name")
+		body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+		if err != nil {
+			writeErr(w, err)
+			return
+		}
+		secret := app.SecretValue("inbound_" + name)
+		if !app.VerifySignature(secret, r.Header.Get("X-CM-Timestamp"), r.Header.Get("X-CM-Signature"), body, time.Now()) {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "bad or missing signature"})
+			return
+		}
+		var in struct {
+			CaseID, CorrelationKey string
+			Vars                   map[string]any
+		}
+		if err := json.Unmarshal(body, &in); err != nil {
+			writeErr(w, fmt.Errorf("%w: body is not JSON", app.ErrInvalid))
+			return
+		}
+		n, err := s.S.Message(r.Context(), app.Actor{ID: "system:inbound:" + name, Roles: []string{app.RoleSupervisor}}, in.CaseID, name, in.CorrelationKey, in.Vars)
+		if err != nil {
+			writeErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"matched": n})
+	})
 	h("POST /api/messages", func(w http.ResponseWriter, r *http.Request) (any, error) {
 		var in struct {
 			Name, CaseID, CorrelationKey string
@@ -707,13 +761,20 @@ func (s *Server) middleware(m *http.ServeMux, callback http.HandlerFunc) http.Ha
 		if o := r.Header.Get("X-HTTP-Method-Override"); o != "" && r.Method == http.MethodPost {
 			r.Method = strings.ToUpper(o)
 		}
+		// stable versioned prefix: /api/v1/... is the same API as /api/...
+		if strings.HasPrefix(r.URL.Path, "/api/v1/") {
+			r.URL.Path = "/api/" + strings.TrimPrefix(r.URL.Path, "/api/v1/")
+			r.URL.RawPath = ""
+		}
 		if strings.HasPrefix(r.URL.Path, "/api/callback/") && r.Method == http.MethodPost {
 			r.SetPathValue("id", strings.TrimPrefix(r.URL.Path, "/api/callback/"))
 			callback(w, r)
 			return
 		}
 		// the theme is public so the sign-in page can show the organisation's look
-		public := r.URL.Path == "/api/openapi.yaml" || (r.URL.Path == "/api/theme" && r.Method == http.MethodGet)
+		// inbound calls from other systems are signed instead (HMAC)
+		public := r.URL.Path == "/api/openapi.yaml" || (r.URL.Path == "/api/theme" && r.Method == http.MethodGet) ||
+			(strings.HasPrefix(r.URL.Path, "/api/inbound/") && r.Method == http.MethodPost)
 		if strings.HasPrefix(r.URL.Path, "/api/") && !public {
 			a, err := s.Auth(r)
 			if err != nil {

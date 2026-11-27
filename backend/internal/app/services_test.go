@@ -3,6 +3,10 @@ package app_test
 import (
 	"context"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -166,5 +170,70 @@ func TestTheme(t *testing.T) {
 	}
 	if th := s.Theme(ctx); th.Accent != "#00539c" || th.Product != "ระบบติดตามเรื่อง" {
 		t.Fatalf("theme not stored: %+v", th)
+	}
+}
+
+// Case events reach a webhook, signed, and are retried when it fails.
+func TestWebhookDelivery(t *testing.T) {
+	var got []string
+	var sigOK bool
+	fail := 1
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		if fail > 0 {
+			fail--
+			w.WriteHeader(503)
+			return
+		}
+		got = append(got, r.Header.Get("X-CM-Event"))
+		sigOK = r.Header.Get("X-CM-Signature") == "sha256="+app.Sign("s3cret", r.Header.Get("X-CM-Timestamp"), b)
+	}))
+	defer srv.Close()
+	t.Setenv("CM_SECRET_ERP_HOOK", "s3cret")
+	s, ctx, now := opsSetup(t, &flaky{})
+	admin := app.Actor{ID: "a", Roles: []string{app.RoleAdmin}}
+	if _, err := s.SaveWebhook(ctx, admin, &store.Webhook{Name: "ERP", URL: srv.URL, Events: []string{"case.started", "work.created"}, Secret: "erp_hook", Active: true}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.StartCase(ctx, clerk, app.StartInput{ProcessKey: "ops", FiscalYear: 2027}); err != nil {
+		t.Fatal(err)
+	}
+	s.Now = func() time.Time { return time.Now() }
+	s.RunOutbox(ctx, 10) // first call fails (503), second message delivered
+	*now = time.Now().Add(time.Hour)
+	s.Now = func() time.Time { return *now }
+	s.RunOutbox(ctx, 10)
+	if len(got) != 2 || !strings.Contains(strings.Join(got, ","), "case.started") || !sigOK {
+		t.Fatalf("delivered %v, signature ok %v", got, sigOK)
+	}
+	hs, _ := s.Webhooks(ctx, admin)
+	if hs[0].LastStatus != "200" {
+		t.Fatalf("last status %q", hs[0].LastStatus)
+	}
+}
+
+// email.send is an extension step any flow can use.
+func TestEmailStepQueuesMail(t *testing.T) {
+	if !strings.Contains(strings.Join(app.Actions(), ","), "email.send") {
+		t.Fatal("email.send not registered")
+	}
+}
+
+func TestVerifySignature(t *testing.T) {
+	now := time.Now()
+	ts := strconv.FormatInt(now.Unix(), 10)
+	body := []byte(`{"vars":{"paid":true}}`)
+	sig := "sha256=" + app.Sign("k", ts, body)
+	if !app.VerifySignature("k", ts, sig, body, now) {
+		t.Fatal("valid signature rejected")
+	}
+	if app.VerifySignature("k", ts, sig, []byte(`{"vars":{"paid":false}}`), now) {
+		t.Fatal("changed body accepted")
+	}
+	if app.VerifySignature("k", ts, sig, body, now.Add(10*time.Minute)) {
+		t.Fatal("old request (replay) accepted")
+	}
+	if app.VerifySignature("", ts, sig, body, now) {
+		t.Fatal("accepted without a configured secret")
 	}
 }
