@@ -82,3 +82,22 @@ func (p *Postgres) OpenCounts(ctx context.Context) (map[string]int, error) {
 	}
 	return out, rows.Err()
 }
+
+func (p *Postgres) PutOutbox(ctx context.Context, o *OutboxMsg) error {
+	return p.exec(ctx, `INSERT INTO cm_outbox(tenant_id,id,status,next_run_at,lease_until,data) VALUES($1,$2,$3,$4,$5,$6)
+		ON CONFLICT (tenant_id,id) DO UPDATE SET status=EXCLUDED.status, next_run_at=EXCLUDED.next_run_at,
+		lease_until=EXCLUDED.lease_until, data=EXCLUDED.data`, p.Tenant, o.ID, o.Status, o.NextRunAt, o.LeaseUntil, js(o))
+}
+func (p *Postgres) LeaseOutbox(ctx context.Context, now time.Time, lease time.Duration, limit int) ([]*OutboxMsg, error) {
+	until := now.Add(lease)
+	return many[OutboxMsg](ctx, p.q(ctx), `WITH due AS (
+		  SELECT id FROM cm_outbox WHERE tenant_id=$1 AND next_run_at<=$2
+		   AND (status='pending' OR (status='sending' AND lease_until<$2))
+		  ORDER BY next_run_at LIMIT $3 FOR UPDATE SKIP LOCKED)
+		UPDATE cm_outbox o SET status='sending', lease_until=$4,
+		  data = o.data || jsonb_build_object('status','sending','leaseUntil',to_jsonb($4::timestamptz))
+		FROM due WHERE o.tenant_id=$1 AND o.id=due.id RETURNING o.data`, p.Tenant, now, limit, until)
+}
+func (p *Postgres) DeleteOutbox(ctx context.Context, id string) error {
+	return p.exec(ctx, `DELETE FROM cm_outbox WHERE tenant_id=$1 AND id=$2`, p.Tenant, id)
+}

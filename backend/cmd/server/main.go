@@ -6,8 +6,14 @@
 //	CALLBACK_SECRET  HMAC secret for external-screen callbacks (required with a database)
 //	PUBLIC_URL     public base URL of this API (for callback links)
 //	SEED_PACK      path to a solution pack (.zip) imported at start when the store is empty
-//	MODE           all (default) | api | worker — run API and/or background workers;
-//	               scale each independently (any number of replicas of each)
+//	MODE           which services this process runs, comma separated:
+//	                 api          HTTP API (scale with users)
+//	                 engine       in-process jobs: decision tables (scale with case volume)
+//	                 integration  calls to other systems (slow remotes never delay the engine)
+//	                 scheduler    timers, SLA and escalations (one active, others stand by)
+//	                 notify       e-mail delivery from the outbox
+//	               "worker" = engine,integration,scheduler,notify; "all" (default) = everything.
+//	               Every service can run any number of replicas.
 //	WORKER_ID      worker name used for job leases (default: hostname-pid)
 //	OIDC_ISSUER    enable OIDC bearer auth (e.g. https://sso.example/realms/main)
 //	OIDC_AUDIENCE  expected audience / client id (optional)
@@ -24,6 +30,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -75,23 +82,35 @@ func main() {
 	}
 
 	connector.KeyFunc = app.IdempotencyKey
-	mode := os.Getenv("MODE")
-	if mode == "" {
-		mode = "all"
+	roles, err := parseMode(os.Getenv("MODE"))
+	if err != nil {
+		slog.Error("MODE", "err", err)
+		os.Exit(1)
 	}
-	if mode == "all" || mode == "worker" {
-		worker := os.Getenv("WORKER_ID")
-		if worker == "" {
-			h, _ := os.Hostname()
-			worker = fmt.Sprintf("%s-%d", h, os.Getpid())
-		}
-		go loop(ctx, time.Second, "jobs", func() (int, error) { return svc.RunJobs(ctx, worker, 50) })
-		go loop(ctx, 5*time.Second, "timers", func() (int, error) { return svc.RunTimers(ctx) })
-		go loop(ctx, 30*time.Second, "sla", func() (int, error) { return svc.RunSLA(ctx) })
-		slog.Info("worker started", "id", worker)
+	worker := os.Getenv("WORKER_ID")
+	if worker == "" {
+		h, _ := os.Hostname()
+		worker = fmt.Sprintf("%s-%d", h, os.Getpid())
 	}
-	if mode == "worker" {
-		// workers still expose health and metrics
+	var queues []string
+	if roles["engine"] {
+		queues = append(queues, store.QueueEngine)
+	}
+	if roles["integration"] {
+		queues = append(queues, store.QueueIntegration)
+	}
+	if len(queues) > 0 {
+		go loop(ctx, time.Second, "jobs", func() (int, error) { return svc.RunQueues(ctx, worker, queues, 50) })
+	}
+	if roles["scheduler"] {
+		go schedule(ctx, st, svc)
+	}
+	if roles["notify"] {
+		go loop(ctx, 5*time.Second, "outbox", func() (int, error) { return svc.RunOutbox(ctx, 50) })
+	}
+	slog.Info("services", "mode", keys(roles), "worker", worker)
+	if !roles["api"] {
+		// background services still expose health and metrics
 		srv := &http.Server{Addr: envOr("ADDR", ":8081"), Handler: api.OpsHandler(), ReadHeaderTimeout: 10 * time.Second}
 		go func() { <-ctx.Done(); _ = srv.Shutdown(context.Background()) }()
 		_ = srv.ListenAndServe()
@@ -130,6 +149,76 @@ func apiServer(svc *app.Service) *api.Server {
 		slog.Warn("auth: development headers (set OIDC_ISSUER in production)")
 	}
 	return srv
+}
+
+var allRoles = []string{"api", "engine", "integration", "scheduler", "notify"}
+
+// parseMode turns MODE into the set of services to run.
+func parseMode(m string) (map[string]bool, error) {
+	out := map[string]bool{}
+	if strings.TrimSpace(m) == "" {
+		m = "all"
+	}
+	for _, r := range strings.Split(m, ",") {
+		switch r = strings.TrimSpace(r); r {
+		case "all":
+			for _, x := range allRoles {
+				out[x] = true
+			}
+		case "worker":
+			for _, x := range allRoles[1:] {
+				out[x] = true
+			}
+		case "api", "engine", "integration", "scheduler", "notify":
+			out[r] = true
+		default:
+			return nil, fmt.Errorf("unknown service %q (use %s, worker or all)", r, strings.Join(allRoles, ", "))
+		}
+	}
+	return out, nil
+}
+
+func keys(m map[string]bool) string {
+	var out []string
+	for _, r := range allRoles {
+		if m[r] {
+			out = append(out, r)
+		}
+	}
+	return strings.Join(out, ",")
+}
+
+// schedule runs timers and SLA checks on exactly one replica at a time:
+// the others wait for the leader lock and take over if the leader dies.
+func schedule(ctx context.Context, st store.Store, svc *app.Service) {
+	run := func(ctx context.Context) {
+		slog.Info("scheduler: active")
+		done := make(chan struct{}, 2)
+		go func() {
+			loop(ctx, 5*time.Second, "timers", func() (int, error) { return svc.RunTimers(ctx) })
+			done <- struct{}{}
+		}()
+		go func() {
+			loop(ctx, 30*time.Second, "sla", func() (int, error) { return svc.RunSLA(ctx) })
+			done <- struct{}{}
+		}()
+		<-done
+		<-done
+		if ctx.Err() != nil {
+			slog.Warn("scheduler: stepped down")
+		}
+	}
+	l, ok := st.(store.Leader)
+	if !ok {
+		run(ctx)
+		return
+	}
+	for ctx.Err() == nil {
+		if err := l.Lead(ctx, "scheduler", run); err != nil && ctx.Err() == nil {
+			slog.Error("scheduler: election", "err", err)
+			time.Sleep(3 * time.Second)
+		}
+	}
 }
 
 // loop polls fn; when it found work it runs again immediately.

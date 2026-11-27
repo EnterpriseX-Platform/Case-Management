@@ -40,24 +40,100 @@ spec:
             requests: { cpu: 100m, memory: 128Mi }
             limits: { memory: 512Mi }
 ---
+# Engine: decision tables and other in-process jobs. Scale with case volume.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cm-worker
-  labels: { app: cm-worker }
+  name: cm-engine
+  labels: { app: cm-engine }
 spec:
   replicas: 2
-  selector: { matchLabels: { app: cm-worker } }
+  selector: { matchLabels: { app: cm-engine } }
   template:
-    metadata: { labels: { app: cm-worker } }
+    metadata: { labels: { app: cm-engine } }
     spec:
       containers:
-        - name: worker
+        - name: engine
           image: registry.example.com/cm/cm-api:latest
-          env: [{ name: MODE, value: worker }]
+          env: [{ name: MODE, value: engine }]
           envFrom: [{ configMapRef: { name: cm-config } }, { secretRef: { name: cm-secrets } }]
+          ports: [{ containerPort: 8081 }]
+          readinessProbe: { httpGet: { path: /healthz, port: 8081 }, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /healthz, port: 8081 }, periodSeconds: 30 }
+          resources:
+            requests: { cpu: 200m, memory: 128Mi }
+            limits: { memory: 512Mi }
+---
+# Integration: calls to other systems. Slow remotes never hold up the engine.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cm-integration
+  labels: { app: cm-integration }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: cm-integration } }
+  template:
+    metadata: { labels: { app: cm-integration } }
+    spec:
+      containers:
+        - name: integration
+          image: registry.example.com/cm/cm-api:latest
+          env: [{ name: MODE, value: integration }]
+          envFrom: [{ configMapRef: { name: cm-config } }, { secretRef: { name: cm-secrets } }]
+          ports: [{ containerPort: 8081 }]
+          readinessProbe: { httpGet: { path: /healthz, port: 8081 }, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /healthz, port: 8081 }, periodSeconds: 30 }
           resources:
             requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 512Mi }
+---
+# Scheduler: timers, SLA, escalations. One replica is active; the other takes over if it dies.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cm-scheduler
+  labels: { app: cm-scheduler }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: cm-scheduler } }
+  template:
+    metadata: { labels: { app: cm-scheduler } }
+    spec:
+      containers:
+        - name: scheduler
+          image: registry.example.com/cm/cm-api:latest
+          env: [{ name: MODE, value: scheduler }]
+          envFrom: [{ configMapRef: { name: cm-config } }, { secretRef: { name: cm-secrets } }]
+          ports: [{ containerPort: 8081 }]
+          readinessProbe: { httpGet: { path: /healthz, port: 8081 }, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /healthz, port: 8081 }, periodSeconds: 30 }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 512Mi }
+---
+# Notify: e-mail delivery from the outbox, with retries.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cm-notify
+  labels: { app: cm-notify }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: cm-notify } }
+  template:
+    metadata: { labels: { app: cm-notify } }
+    spec:
+      containers:
+        - name: notify
+          image: registry.example.com/cm/cm-api:latest
+          env: [{ name: MODE, value: notify }]
+          envFrom: [{ configMapRef: { name: cm-config } }, { secretRef: { name: cm-secrets } }]
+          ports: [{ containerPort: 8081 }]
+          readinessProbe: { httpGet: { path: /healthz, port: 8081 }, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /healthz, port: 8081 }, periodSeconds: 30 }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
             limits: { memory: 512Mi }
 ---
 apiVersion: apps/v1
@@ -93,3 +169,22 @@ metadata: { name: cm-web }
 spec:
   selector: { app: cm-web }
   ports: [{ port: 3000, targetPort: 3000 }]
+---
+# Scale the API and the engine with load (needs metrics-server).
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: { name: cm-api }
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: cm-api }
+  minReplicas: 2
+  maxReplicas: 10
+  metrics: [{ type: Resource, resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } } }]
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: { name: cm-engine }
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: cm-engine }
+  minReplicas: 2
+  maxReplicas: 10
+  metrics: [{ type: Resource, resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } } }]

@@ -75,6 +75,22 @@ type Notification struct {
 	Read  bool      `json:"read"`
 }
 
+// OutboxMsg is an outgoing message (e-mail) delivered by the notify service
+// with retries, so a slow or unavailable mail server never delays case work.
+type OutboxMsg struct {
+	ID         string     `json:"id"`
+	Kind       string     `json:"kind"` // email
+	To         string     `json:"to"`
+	Subject    string     `json:"subject"`
+	Body       string     `json:"body"`
+	Status     string     `json:"status"` // pending | sending | failed
+	Attempts   int        `json:"attempts"`
+	NextRunAt  time.Time  `json:"nextRunAt"`
+	LeaseUntil *time.Time `json:"leaseUntil,omitempty"`
+	LastError  string     `json:"lastError,omitempty"`
+	CreatedAt  time.Time  `json:"createdAt"`
+}
+
 // Routing decides who gets a step's work item.
 type Routing struct {
 	Mode  string `json:"mode,omitempty"`  // role (default) | queue | user | workload | roundrobin | skill | expression
@@ -108,6 +124,11 @@ type WorkOps interface {
 	AddNotification(ctx context.Context, n *Notification) error
 	ListNotifications(ctx context.Context, user string, limit int) ([]*Notification, error)
 	MarkNotificationsRead(ctx context.Context, user string, ids []string) error
+
+	PutOutbox(ctx context.Context, m *OutboxMsg) error
+	// LeaseOutbox claims due messages (or ones whose sender died) until now+lease.
+	LeaseOutbox(ctx context.Context, now time.Time, lease time.Duration, limit int) ([]*OutboxMsg, error)
+	DeleteOutbox(ctx context.Context, id string) error
 
 	// SLADue returns open work whose goal or deadline passed and was not yet handled.
 	SLADue(ctx context.Context, now time.Time, limit int) ([]*Work, error)

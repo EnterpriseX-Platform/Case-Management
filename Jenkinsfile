@@ -51,10 +51,14 @@ pipeline {
         sh '''
           NS=$K8S_NAMESPACE-$DEPLOY_ENV
           kubectl -n $NS set image deployment/cm-api api=$REGISTRY/cm-api:$TAG
-          kubectl -n $NS set image deployment/cm-worker worker=$REGISTRY/cm-api:$TAG
+          for svc in engine integration scheduler notify; do
+            kubectl -n $NS set image deployment/cm-$svc $svc=$REGISTRY/cm-api:$TAG
+          done
           kubectl -n $NS set image deployment/cm-web web=$REGISTRY/cm-web:$TAG
           kubectl -n $NS rollout status deployment/cm-api --timeout=180s
-          kubectl -n $NS rollout status deployment/cm-worker --timeout=180s
+          for svc in engine integration scheduler notify; do
+            kubectl -n $NS rollout status deployment/cm-$svc --timeout=180s
+          done
           kubectl -n $NS rollout status deployment/cm-web --timeout=180s
         '''
       }

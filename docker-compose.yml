@@ -1,5 +1,6 @@
-# Local / evaluation stack. API and workers scale independently:
-#   docker compose up -d --scale worker=3
+# Local / evaluation stack, one container per service. Each scales on its own:
+#   docker compose up -d --scale engine=3 --scale integration=2
+# The scheduler runs as two replicas: one is active, the other stands by.
 services:
   db:
     image: postgres:16-alpine
@@ -16,6 +17,7 @@ services:
 
   api:
     build: ./backend
+    restart: unless-stopped
     environment: &cm-env
       DATABASE_URL: postgres://cm:cm-local-only@db:5432/cm?sslmode=disable
       CALLBACK_SECRET: change-me-local-only
@@ -27,12 +29,32 @@ services:
     depends_on:
       db: { condition: service_healthy }
 
-  worker:
+  engine:
     build: ./backend
-    environment:
-      <<: *cm-env
-      MODE: worker
-      SEED_PACK: ""
+    restart: unless-stopped
+    environment: { <<: *cm-env, MODE: engine, SEED_PACK: "" }
+    depends_on:
+      db: { condition: service_healthy }
+
+  integration:
+    build: ./backend
+    restart: unless-stopped
+    environment: { <<: *cm-env, MODE: integration, SEED_PACK: "" }
+    depends_on:
+      db: { condition: service_healthy }
+
+  scheduler:
+    build: ./backend
+    restart: unless-stopped
+    environment: { <<: *cm-env, MODE: scheduler, SEED_PACK: "" }
+    deploy: { replicas: 2 }
+    depends_on:
+      db: { condition: service_healthy }
+
+  notify:
+    build: ./backend
+    restart: unless-stopped
+    environment: { <<: *cm-env, MODE: notify, SEED_PACK: "" }
     depends_on:
       db: { condition: service_healthy }
 

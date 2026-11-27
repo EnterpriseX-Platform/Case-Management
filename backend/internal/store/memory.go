@@ -385,7 +385,7 @@ func (m *Memory) GetJob(_ context.Context, id string) (*JobRec, error) {
 	}
 	return nil, ErrNotFound
 }
-func (m *Memory) LeaseJobs(_ context.Context, worker string, now time.Time, lease time.Duration, limit int) ([]*JobRec, error) {
+func (m *Memory) LeaseJobs(_ context.Context, worker string, queues []string, now time.Time, lease time.Duration, limit int) ([]*JobRec, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var out []*JobRec
@@ -394,7 +394,7 @@ func (m *Memory) LeaseJobs(_ context.Context, worker string, now time.Time, leas
 			break
 		}
 		free := j.Status == JobPending || (j.Status == JobRunning && j.LeaseUntil != nil && j.LeaseUntil.Before(now))
-		if free && !j.NextRunAt.After(now) {
+		if free && !j.NextRunAt.After(now) && inQueues(j.Queue, queues) {
 			until := now.Add(lease)
 			j.Status, j.LeaseUntil, j.LeasedBy = JobRunning, &until, worker
 			out = append(out, cp(j))
@@ -506,4 +506,20 @@ func (m *Memory) FindSubscriptions(_ context.Context, kind, name string) ([]Subs
 		}
 	}
 	return out, nil
+}
+
+// inQueues reports whether a job of queue q may be claimed (no filter = any).
+func inQueues(q string, queues []string) bool {
+	if len(queues) == 0 {
+		return true
+	}
+	if q == "" {
+		q = QueueIntegration
+	}
+	for _, x := range queues {
+		if x == q {
+			return true
+		}
+	}
+	return false
 }

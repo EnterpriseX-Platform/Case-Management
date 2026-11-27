@@ -6,11 +6,15 @@ import (
 )
 
 func (p *Postgres) PutJob(ctx context.Context, j *JobRec) error {
-	return p.exec(ctx, `INSERT INTO cm_job(tenant_id,id,case_id,instance_id,token_id,status,next_run_at,lease_until,data)
-		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+	q := j.Queue
+	if q == "" {
+		q = QueueIntegration
+	}
+	return p.exec(ctx, `INSERT INTO cm_job(tenant_id,id,case_id,instance_id,token_id,status,next_run_at,lease_until,data,queue)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
 		ON CONFLICT (tenant_id,id) DO UPDATE SET status=EXCLUDED.status, next_run_at=EXCLUDED.next_run_at,
-		lease_until=EXCLUDED.lease_until, data=EXCLUDED.data`,
-		p.Tenant, j.ID, j.CaseID, j.InstanceID, j.TokenID, j.Status, j.NextRunAt, j.LeaseUntil, js(j))
+		lease_until=EXCLUDED.lease_until, data=EXCLUDED.data, queue=EXCLUDED.queue`,
+		p.Tenant, j.ID, j.CaseID, j.InstanceID, j.TokenID, j.Status, j.NextRunAt, j.LeaseUntil, js(j), q)
 }
 func (p *Postgres) GetJob(ctx context.Context, id string) (*JobRec, error) {
 	return one[JobRec](ctx, p.q(ctx), `SELECT data FROM cm_job WHERE tenant_id=$1 AND id=$2`, p.Tenant, id)
@@ -18,15 +22,19 @@ func (p *Postgres) GetJob(ctx context.Context, id string) (*JobRec, error) {
 
 // LeaseJobs claims due jobs (or jobs whose lease expired because a worker
 // died) with SKIP LOCKED, so any number of workers can share the queue.
-func (p *Postgres) LeaseJobs(ctx context.Context, worker string, now time.Time, lease time.Duration, limit int) ([]*JobRec, error) {
+func (p *Postgres) LeaseJobs(ctx context.Context, worker string, queues []string, now time.Time, lease time.Duration, limit int) ([]*JobRec, error) {
 	until := now.Add(lease)
+	if queues == nil {
+		queues = []string{}
+	}
 	return many[JobRec](ctx, p.q(ctx), `WITH due AS (
 		  SELECT id FROM cm_job WHERE tenant_id=$1 AND next_run_at<=$2
+		   AND (cardinality($6::text[])=0 OR queue = ANY($6::text[]))
 		   AND (status='pending' OR (status='running' AND lease_until<$2))
 		  ORDER BY next_run_at LIMIT $3 FOR UPDATE SKIP LOCKED)
 		UPDATE cm_job j SET status='running', lease_until=$4,
 		  data = j.data || jsonb_build_object('status','running','leaseUntil',to_jsonb($4::timestamptz),'leasedBy',$5::text)
-		FROM due WHERE j.tenant_id=$1 AND j.id=due.id RETURNING j.data`, p.Tenant, now, limit, until, worker)
+		FROM due WHERE j.tenant_id=$1 AND j.id=due.id RETURNING j.data`, p.Tenant, now, limit, until, worker, queues)
 }
 func (p *Postgres) DeleteJob(ctx context.Context, id string) error {
 	return p.exec(ctx, `DELETE FROM cm_job WHERE tenant_id=$1 AND id=$2`, p.Tenant, id)

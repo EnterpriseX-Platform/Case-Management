@@ -12,5 +12,8 @@ var Ops string
 //go:embed 003_work.sql
 var Work string
 
+//go:embed 004_services.sql
+var Services string
+
 // All returns the migrations in order. Every script is idempotent.
-func All() []string { return []string{Init, Ops, Work} }
+func All() []string { return []string{Init, Ops, Work, Services} }

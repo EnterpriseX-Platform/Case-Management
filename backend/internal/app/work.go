@@ -6,6 +6,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/smtp"
 	"os"
@@ -505,22 +506,65 @@ func (s *Service) notify(ctx context.Context, user, kind, title, link string) {
 	}
 	n := &store.Notification{ID: id.New(), User: user, At: s.Now(), Kind: kind, Title: title, Link: link}
 	_ = s.S.AddNotification(ctx, n)
-	if host := os.Getenv("SMTP_HOST"); host != "" {
-		if u, err := s.S.GetUser(ctx, user); err == nil && u.Email != "" {
-			go sendMail(host, u.Email, title, os.Getenv("PUBLIC_WEB_URL")+link)
-		}
+	// e-mail goes through the outbox; the notify service delivers it with retries
+	if u, err := s.S.GetUser(ctx, user); err == nil && u.Email != "" {
+		now := s.Now()
+		_ = s.S.PutOutbox(ctx, &store.OutboxMsg{ID: id.New(), Kind: "email", To: u.Email, Subject: title,
+			Body: title + "\r\n" + os.Getenv("PUBLIC_WEB_URL") + link + "\r\n", Status: "pending", NextRunAt: now, CreatedAt: now})
 	}
 }
 
-func sendMail(host, to, subject, link string) {
+// Mailer sends one e-mail. The default uses SMTP_* settings; tests replace it.
+var Mailer = func(to, subject, body string) error {
+	host := os.Getenv("SMTP_HOST")
+	if host == "" {
+		return errNoMailer
+	}
 	from := firstNonEmpty(os.Getenv("SMTP_FROM"), "case-management@localhost")
 	port := firstNonEmpty(os.Getenv("SMTP_PORT"), "587")
 	var auth smtp.Auth
 	if u := os.Getenv("SMTP_USER"); u != "" {
 		auth = smtp.PlainAuth("", u, os.Getenv("SMTP_PASSWORD"), host)
 	}
-	msg := "From: " + from + "\r\nTo: " + to + "\r\nSubject: " + subject + "\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n" + subject + "\r\n" + link + "\r\n"
-	_ = smtp.SendMail(host+":"+port, auth, from, []string{to}, []byte(msg))
+	msg := "From: " + from + "\r\nTo: " + to + "\r\nSubject: " + subject + "\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n" + body
+	return smtp.SendMail(host+":"+port, auth, from, []string{to}, []byte(msg))
+}
+
+var errNoMailer = errors.New("SMTP_HOST not set")
+
+const maxMailAttempts = 8
+
+// RunOutbox delivers pending e-mail. Failures retry with backoff; after
+// maxMailAttempts the message stays as failed for an operator to look at.
+// Without SMTP configured, messages are dropped (in-app notifications remain).
+func (s *Service) RunOutbox(ctx context.Context, limit int) (int, error) {
+	msgs, err := s.S.LeaseOutbox(ctx, s.Now(), 2*time.Minute, limit)
+	if err != nil {
+		return 0, err
+	}
+	for _, m := range msgs {
+		err := Mailer(m.To, m.Subject, m.Body)
+		switch {
+		case err == nil, errors.Is(err, errNoMailer):
+			Metrics.MailSent.Add(1)
+			if err := s.S.DeleteOutbox(ctx, m.ID); err != nil {
+				return 0, err
+			}
+		default:
+			m.Attempts++
+			m.LastError, m.LeaseUntil = err.Error(), nil
+			if m.Attempts >= maxMailAttempts {
+				m.Status = "failed"
+				Metrics.MailFailed.Add(1)
+			} else {
+				m.Status, m.NextRunAt = "pending", s.Now().Add(backoff(m.Attempts))
+			}
+			if err := s.S.PutOutbox(ctx, m); err != nil {
+				return 0, err
+			}
+		}
+	}
+	return len(msgs), nil
 }
 
 // Profile / settings helpers used by the API.

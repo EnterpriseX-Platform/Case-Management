@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -32,8 +33,11 @@ func NewPostgres(ctx context.Context, url, tenant string) (*Postgres, error) {
 	return &Postgres{pool: pool, Tenant: tenant}, nil
 }
 
-// Migrate runs the (idempotent) scripts under a cluster-wide advisory lock,
-// so API and worker replicas starting together do not race on DDL.
+// Migrate applies schema scripts that were not applied yet, under a
+// cluster-wide advisory lock. Applied scripts are recorded, so replicas that
+// start later run no DDL at all and never lock tables other replicas use.
+// Scripts are idempotent, so a database created before the record existed
+// simply records them on the next start.
 func (p *Postgres) Migrate(ctx context.Context, scripts ...string) error {
 	conn, err := p.pool.Acquire(ctx)
 	if err != nil {
@@ -45,8 +49,24 @@ func (p *Postgres) Migrate(ctx context.Context, scripts ...string) error {
 		return err
 	}
 	defer conn.Exec(context.WithoutCancel(ctx), "SELECT pg_advisory_unlock($1)", lockKey)
-	for _, sql := range scripts {
+	if _, err := conn.Exec(ctx, `CREATE TABLE IF NOT EXISTS cm_migration (
+		no int PRIMARY KEY, checksum text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now())`); err != nil {
+		return err
+	}
+	for i, sql := range scripts {
+		sum := fmt.Sprintf("%x", sha256.Sum256([]byte(sql)))
+		var have string
+		err := conn.QueryRow(ctx, `SELECT checksum FROM cm_migration WHERE no=$1`, i+1).Scan(&have)
+		if err == nil {
+			continue // applied (a later edit of an applied script is not re-run)
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
 		if _, err := conn.Exec(ctx, sql); err != nil {
+			return fmt.Errorf("migration %d: %w", i+1, err)
+		}
+		if _, err := conn.Exec(ctx, `INSERT INTO cm_migration(no, checksum) VALUES($1,$2)`, i+1, sum); err != nil {
 			return err
 		}
 	}

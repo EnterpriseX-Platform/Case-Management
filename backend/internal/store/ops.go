@@ -15,9 +15,18 @@ const (
 	JobDead    JobStatus = "dead" // gave up; an incident was raised
 )
 
+// Job queues let each kind of background work scale on its own:
+// engine jobs are fast in-process evaluations (decision tables), integration
+// jobs call other systems and may be slow.
+const (
+	QueueEngine      = "engine"
+	QueueIntegration = "integration"
+)
+
 // JobRec is a unit of external work (connector / rule call) with retries.
 type JobRec struct {
-	ID string `json:"id"`
+	ID    string `json:"id"`
+	Queue string `json:"queue,omitempty"` // engine | integration (empty = integration)
 	engine.Job
 	CaseID      string     `json:"caseId"`
 	Status      JobStatus  `json:"status"`
@@ -78,7 +87,8 @@ type OpsStore interface {
 	PutJob(ctx context.Context, j *JobRec) error
 	GetJob(ctx context.Context, id string) (*JobRec, error)
 	// LeaseJobs atomically claims due jobs for a worker until now+lease.
-	LeaseJobs(ctx context.Context, worker string, now time.Time, lease time.Duration, limit int) ([]*JobRec, error)
+	// queues limits the claim to those queues (none = every queue).
+	LeaseJobs(ctx context.Context, worker string, queues []string, now time.Time, lease time.Duration, limit int) ([]*JobRec, error)
 	DeleteJob(ctx context.Context, id string) error
 	DeleteJobsByToken(ctx context.Context, instanceID, tokenID string) error
 	ListJobs(ctx context.Context, caseID string) ([]*JobRec, error)

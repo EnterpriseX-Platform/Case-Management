@@ -61,3 +61,44 @@ func TestConcurrentMigrate(t *testing.T) {
 		}
 	}
 }
+
+// A replica starting while others are busy with the job table must not
+// need table locks (no DDL once the schema is current).
+func TestMigrateWhileTablesInUse(t *testing.T) {
+	url := os.Getenv("CM_TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("CM_TEST_DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	first, err := store.NewPostgres(ctx, url, "t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer first.Close()
+	if err := first.Migrate(ctx, migrations.All()...); err != nil {
+		t.Fatal(err)
+	}
+	busy, err := pgx.Connect(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer busy.Close(ctx)
+	tx, err := busy.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, "LOCK TABLE cm_job IN ROW EXCLUSIVE MODE"); err != nil { // like a worker leasing jobs
+		t.Fatal(err)
+	}
+	next, err := store.NewPostgres(ctx, url, "t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer next.Close()
+	mctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	if err := next.Migrate(mctx, migrations.All()...); err != nil {
+		t.Fatalf("second replica blocked by a busy table: %v", err)
+	}
+}

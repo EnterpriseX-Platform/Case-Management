@@ -185,7 +185,7 @@ func TestWorkerCrashLeaseTakeover(t *testing.T) {
 	h := &flaky{}
 	s, ctx, now := opsSetup(t, h)
 	c := startAndFill(t, s, ctx)
-	leased, err := s.S.LeaseJobs(ctx, "dead-worker", *now, 2*time.Minute, 10)
+	leased, err := s.S.LeaseJobs(ctx, "dead-worker", nil, *now, 2*time.Minute, 10)
 	if err != nil || len(leased) != 1 {
 		t.Fatalf("lease: %v %d", err, len(leased))
 	}

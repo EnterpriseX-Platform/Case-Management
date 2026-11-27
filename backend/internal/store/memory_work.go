@@ -11,6 +11,7 @@ type memWork struct {
 	queues   map[string]*Queue
 	settings *Settings
 	notes    []*Notification
+	outbox   map[string]*OutboxMsg
 }
 
 func (m *Memory) wk() *memWork {
@@ -148,4 +149,37 @@ func (m *Memory) OpenCounts(context.Context) (map[string]int, error) {
 		}
 	}
 	return out, nil
+}
+
+func (m *Memory) PutOutbox(_ context.Context, o *OutboxMsg) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.wk().outbox == nil {
+		m.wk().outbox = map[string]*OutboxMsg{}
+	}
+	m.wk().outbox[o.ID] = cp(o)
+	return nil
+}
+func (m *Memory) LeaseOutbox(_ context.Context, now time.Time, lease time.Duration, limit int) ([]*OutboxMsg, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []*OutboxMsg
+	for _, o := range m.wk().outbox {
+		if len(out) >= limit {
+			break
+		}
+		free := o.Status == "pending" || (o.Status == "sending" && o.LeaseUntil != nil && o.LeaseUntil.Before(now))
+		if free && !o.NextRunAt.After(now) {
+			until := now.Add(lease)
+			o.Status, o.LeaseUntil = "sending", &until
+			out = append(out, cp(o))
+		}
+	}
+	return out, nil
+}
+func (m *Memory) DeleteOutbox(_ context.Context, id string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.wk().outbox, id)
+	return nil
 }

@@ -556,6 +556,9 @@ func (s *Service) Reassign(ctx context.Context, by Actor, workID, assignee, role
 		}
 		out = w
 		s.audit(ctx, by, "work.reassign", "case", w.CaseID, map[string]any{"work": w.ID, "to": assignee, "role": role})
+		if assignee != "" && assignee != by.ID { // the new assignee should know
+			s.notify(ctx, assignee, "assigned", w.CaseNumber+" · "+w.Name, "/work/"+w.ID)
+		}
 		return s.S.PutWork(ctx, w)
 	})
 	return out, err

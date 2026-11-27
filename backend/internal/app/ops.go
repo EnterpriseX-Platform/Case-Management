@@ -16,7 +16,7 @@ import (
 
 // Counters exported on /metrics.
 var Metrics struct {
-	Steps, JobsDone, JobsRetried, JobsFailed, Incidents, Conflicts, TimersFired atomic.Int64
+	Steps, JobsDone, JobsRetried, JobsFailed, Incidents, Conflicts, TimersFired, MailSent, MailFailed atomic.Int64
 }
 
 // tx runs fn in a transaction and transparently re-runs it when another
@@ -51,7 +51,7 @@ func (s *Service) applyOps(ctx context.Context, c *store.Case, p *bpmn.Process, 
 		if n := p.Nodes[j.Node]; n != nil {
 			fmt.Sscan(n.Ext["retries"], &max)
 		}
-		rec := &store.JobRec{ID: id.New(), Job: j, CaseID: c.ID, Status: store.JobPending, MaxAttempts: max, NextRunAt: now, CreatedAt: now}
+		rec := &store.JobRec{ID: id.New(), Queue: jobQueue(p.Nodes[j.Node]), Job: j, CaseID: c.ID, Status: store.JobPending, MaxAttempts: max, NextRunAt: now, CreatedAt: now}
 		if err := s.S.PutJob(ctx, rec); err != nil {
 			return err
 		}
@@ -196,7 +196,13 @@ func subscriptions(c *store.Case, p *bpmn.Process) []store.Subscription {
 // Connectors receive the job id as idempotency key, so a job re-run after a
 // crash can be de-duplicated by the remote system.
 func (s *Service) RunJobs(ctx context.Context, worker string, limit int) (int, error) {
-	jobs, err := s.S.LeaseJobs(ctx, worker, s.Now(), 2*time.Minute, limit)
+	return s.RunQueues(ctx, worker, nil, limit)
+}
+
+// RunQueues is RunJobs limited to some job queues (engine, integration), so
+// each kind of worker can be deployed and scaled separately.
+func (s *Service) RunQueues(ctx context.Context, worker string, queues []string, limit int) (int, error) {
+	jobs, err := s.S.LeaseJobs(ctx, worker, queues, s.Now(), 2*time.Minute, limit)
 	if err != nil {
 		return 0, err
 	}
@@ -270,6 +276,15 @@ func (s *Service) runJob(ctx context.Context, j *store.JobRec) error {
 		return s.apply(ctx, Actor{ID: "system:job"}, c, p, fx)
 	})
 	return err
+}
+
+// jobQueue routes a job: decision tables run in-process (engine queue);
+// everything that calls another system goes to the integration queue.
+func jobQueue(n *bpmn.Node) string {
+	if n != nil && n.Ext["decision"] != "" {
+		return store.QueueEngine
+	}
+	return store.QueueIntegration
 }
 
 func backoff(attempt int) time.Duration {
