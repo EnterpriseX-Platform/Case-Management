@@ -543,7 +543,9 @@ func (s *Server) Handler() http.Handler {
 	})
 
 	// events
-	h("GET /api/assign-rules", func(w http.ResponseWriter, r *http.Request) (any, error) { return s.S.AssignRules(r.Context(), actor(r)) })
+	h("GET /api/assign-rules", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		return s.S.AssignRules(r.Context(), actor(r))
+	})
 	h("PUT /api/assign-rules/{id}", func(w http.ResponseWriter, r *http.Request) (any, error) {
 		var ar store.AssignRule
 		if err := decode(r, &ar); err != nil {

@@ -21,6 +21,8 @@
 //	OIDC_ROLE_PREFIX  only use roles with this prefix (prefix removed)
 //	CM_CONNECTOR_ALLOW  hosts studio connectors may call, e.g. "erp.example.com,.internal.example" (empty = any)
 //	CM_SECRET_<NAME>    secrets referenced by connectors as ${secret:NAME}
+//	DATABASE_READ_URL   read replica for reports and monitoring (optional)
+//	CM_ARCHIVE_AFTER_DAYS  move cases closed this many days ago to the archive (0 = off)
 package main
 
 import (
@@ -72,6 +74,17 @@ func main() {
 	}
 
 	svc := app.New(st, connector.New(os.Getenv("RULES_URL"), os.Getenv("RULES_TOKEN")), []byte(secret))
+	if ru := os.Getenv("DATABASE_READ_URL"); ru != "" {
+		if pg, ok := st.(*store.Postgres); ok {
+			r, err := pg.Reader(ctx, ru)
+			if err != nil {
+				slog.Error("read replica", "err", err)
+				os.Exit(1)
+			}
+			svc.R = r
+			slog.Info("reports read from the replica")
+		}
+	}
 
 	if pack := os.Getenv("SEED_PACK"); pack != "" {
 		if ps, _ := st.ListProcesses(ctx); len(ps) == 0 {
@@ -193,7 +206,7 @@ func keys(m map[string]bool) string {
 func schedule(ctx context.Context, st store.Store, svc *app.Service) {
 	run := func(ctx context.Context) {
 		slog.Info("scheduler: active")
-		done := make(chan struct{}, 2)
+		done := make(chan struct{}, 4)
 		go func() {
 			loop(ctx, 5*time.Second, "timers", func() (int, error) { return svc.RunTimers(ctx) })
 			done <- struct{}{}
@@ -202,8 +215,22 @@ func schedule(ctx context.Context, st store.Store, svc *app.Service) {
 			loop(ctx, 30*time.Second, "sla", func() (int, error) { return svc.RunSLA(ctx) })
 			done <- struct{}{}
 		}()
-		<-done
-		<-done
+		go func() {
+			if sc, ok := st.(store.Scaler); ok {
+				if ms, err := sc.DailyMetrics(ctx, time.Now().AddDate(-2, 0, 0), time.Now(), ""); err == nil && len(ms) == 0 {
+					_ = svc.RebuildRollup(ctx) // first start after an upgrade
+				}
+			}
+			loop(ctx, 10*time.Minute, "rollup", func() (int, error) { return svc.RunRollup(ctx) })
+			done <- struct{}{}
+		}()
+		go func() {
+			loop(ctx, 15*time.Minute, "archive", func() (int, error) { return svc.RunArchive(ctx) })
+			done <- struct{}{}
+		}()
+		for i := 0; i < 4; i++ {
+			<-done
+		}
 		if ctx.Err() != nil {
 			slog.Warn("scheduler: stepped down")
 		}

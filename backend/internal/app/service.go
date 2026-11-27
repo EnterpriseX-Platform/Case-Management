@@ -61,7 +61,8 @@ type Service struct {
 	Secret []byte // signs external-screen callback tokens
 	Now    func() time.Time
 
-	Broker Broker // optional message broker for events
+	Broker Broker      // optional message broker for events
+	R      store.Store // optional read replica for reports and monitoring
 
 	mu    sync.Mutex
 	cache map[string]*bpmn.Process // published versions only (immutable)

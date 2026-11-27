@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -286,5 +287,58 @@ func TestAssignRules(t *testing.T) {
 	p, err := s.PreviewAssign(ctx, boss, "ops", "fill", "", "clerk", map[string]any{"amount": 999999.0}, nil)
 	if err != nil || p.Rule != "Big amounts to seniors" || p.Assignee != "" || p.Note == "" {
 		t.Fatalf("preview: %+v %v", p, err)
+	}
+}
+
+// Closed cases move to the archive and still open read-only; the daily
+// summary counts them.
+func TestArchiveAndRollup(t *testing.T) {
+	if os.Getenv("CM_TEST_DATABASE_URL") == "" {
+		t.Skip("needs Postgres")
+	}
+	ctx := context.Background()
+	st := newStore(t)
+	s := app.New(st, nil, []byte("x"))
+	past := time.Now().AddDate(0, 0, -400)
+	s.Now = func() time.Time { return past }
+	s.E.Now = s.Now
+	if _, err := s.CreateProcess(ctx, designer, store.ProcessDef{Key: "quick", Name: "Quick"}); err != nil {
+		t.Fatal(err)
+	}
+	v, _, err := s.CreateDraft(ctx, designer, "quick", blank, "", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	publish(t, s, ctx, v.ID)
+	var ids []string
+	for i := 0; i < 3; i++ {
+		c, err := s.StartCase(ctx, clerk, app.StartInput{ProcessKey: "quick"})
+		if err != nil || c.Status != "completed" {
+			t.Fatalf("start: %v %v", c, err)
+		}
+		ids = append(ids, c.ID)
+	}
+	s.Now = time.Now
+	t.Setenv("CM_ARCHIVE_AFTER_DAYS", "365")
+	n, err := s.RunArchive(ctx)
+	if err != nil || n != 3 {
+		t.Fatalf("archived %d, %v", n, err)
+	}
+	if cs, _ := st.ListCases(ctx, "quick", "", 10); len(cs) != 0 {
+		t.Fatalf("%d cases left in the live table", len(cs))
+	}
+	c, err := st.GetCase(ctx, ids[0])
+	if err != nil || c.Status != "completed" {
+		t.Fatalf("archived case does not open: %v", err)
+	}
+	if ev, _ := st.ListEvents(ctx, ids[0], 0); len(ev) == 0 {
+		t.Fatal("archived case lost its history")
+	}
+	if err := s.RebuildRollup(ctx); err != nil {
+		t.Fatal(err)
+	}
+	ms, err := st.(store.Scaler).DailyMetrics(ctx, past.AddDate(0, 0, -1), past.AddDate(0, 0, 1), "quick")
+	if err != nil || len(ms) != 1 || ms[0].Started != 3 || ms[0].Completed != 3 {
+		t.Fatalf("daily summary: %+v %v", ms, err)
 	}
 }

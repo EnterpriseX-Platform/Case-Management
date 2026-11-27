@@ -56,7 +56,7 @@ type PersonLoad struct {
 }
 
 func (s *Service) caseScope(ctx context.Context, processKey, versionID string) ([]*store.Case, error) {
-	cs, err := s.S.ListCases(ctx, processKey, versionID, 5000)
+	cs, err := s.reader().ListCases(ctx, processKey, versionID, 5000)
 	if err != nil {
 		return nil, err
 	}
@@ -130,6 +130,33 @@ func (s *Service) MonitorOverview(ctx context.Context, by Actor, processKey stri
 		}
 	}
 	o.CycleP50, o.CycleP90 = pct(cycles, .5), pct(cycles, .9)
+	// at large volumes the exact figures come from the summary table and
+	// per-stage counts instead of the recent cases scanned above
+	if sc, ok := s.reader().(store.Scaler); ok {
+		if ms, err := sc.DailyMetrics(ctx, from, now, processKey); err == nil && len(ms) > 0 {
+			for i := range o.Days {
+				o.Days[i].Started, o.Days[i].Completed = 0, 0
+			}
+			o.Started, o.Completed = 0, 0
+			for _, m := range ms {
+				if d := idx[m.Day]; d != nil {
+					d.Started += m.Started
+					d.Completed += m.Completed
+				}
+				o.Started += m.Started
+				o.Completed += m.Completed
+			}
+		}
+		if by, err := sc.OpenByStage(ctx, processKey); err == nil {
+			o.Running = 0
+			stage = map[string]*NameCount{}
+			for k, n := range by {
+				o.Running += n
+				key := firstNonEmpty(k, "-")
+				stage[key] = &NameCount{Key: key, Name: key, Count: n}
+			}
+		}
+	}
 	names := s.stageNames(ctx, processKey)
 	for _, v := range stage {
 		v.Name = firstNonEmpty(names[v.Key], v.Key)
@@ -137,7 +164,7 @@ func (s *Service) MonitorOverview(ctx context.Context, by Actor, processKey stri
 	}
 	sort.Slice(o.ByStage, func(i, j int) bool { return o.ByStage[i].Count > o.ByStage[j].Count })
 
-	work, err := s.S.ListWork(ctx, store.WorkFilter{})
+	work, err := s.reader().ListWork(ctx, store.WorkFilter{})
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +217,7 @@ func (s *Service) MonitorOverview(ctx context.Context, by Actor, processKey stri
 		o.Workload = append(o.Workload, *p)
 	}
 	sort.Slice(o.Workload, func(i, j int) bool { return o.Workload[i].Open > o.Workload[j].Open })
-	inc, _ := s.S.ListIncidents(ctx, store.IncidentOpen, "")
+	inc, _ := s.reader().ListIncidents(ctx, store.IncidentOpen, "")
 	for _, i := range inc {
 		if inScope[i.CaseID] {
 			o.Incidents++
@@ -245,7 +272,7 @@ func (s *Service) ProcessStatistics(ctx context.Context, by Actor, versionID str
 	}
 	durations := map[string][]float64{}
 	now := s.Now()
-	open, _ := s.S.ListWork(ctx, store.WorkFilter{Status: []store.WorkStatus{store.WorkOpen, store.WorkClaimed}})
+	open, _ := s.reader().ListWork(ctx, store.WorkFilter{Status: []store.WorkStatus{store.WorkOpen, store.WorkClaimed}})
 	overdue := map[string]int{}
 	inScope := map[string]bool{}
 	for _, c := range cs {
@@ -275,7 +302,7 @@ func (s *Service) ProcessStatistics(ctx context.Context, by Actor, versionID str
 		if n > 2000 {
 			continue // durations from the most recent 2,000 cases
 		}
-		ev, err := s.S.ListEvents(ctx, c.ID, 0)
+		ev, err := s.reader().ListEvents(ctx, c.ID, 0)
 		if err != nil {
 			return nil, err
 		}
@@ -334,7 +361,7 @@ func (s *Service) Explore(ctx context.Context, by Actor, f ExplorerFilter) ([]Ex
 	if err != nil {
 		return nil, err
 	}
-	work, _ := s.S.ListWork(ctx, store.WorkFilter{Status: []store.WorkStatus{store.WorkOpen, store.WorkClaimed}})
+	work, _ := s.reader().ListWork(ctx, store.WorkFilter{Status: []store.WorkStatus{store.WorkOpen, store.WorkClaimed}})
 	byCase := map[string][]*store.Work{}
 	for _, w := range work {
 		byCase[w.CaseID] = append(byCase[w.CaseID], w)

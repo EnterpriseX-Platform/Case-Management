@@ -73,9 +73,15 @@ func (p *Postgres) ListEvents(ctx context.Context, caseID string, limit int) ([]
 	if limit <= 0 {
 		limit = 5000
 	}
-	rows, err := many[EventRec](ctx, p.q(ctx), `SELECT data || jsonb_build_object('seq',seq) FROM (
-		SELECT seq, data FROM cm_event WHERE tenant_id=$1 AND ($2='' OR case_id=$2) ORDER BY seq DESC LIMIT $3) x ORDER BY seq`,
-		p.Tenant, caseID, limit)
+	q := func(table string) ([]*EventRec, error) {
+		return many[EventRec](ctx, p.q(ctx), `SELECT data || jsonb_build_object('seq',seq) FROM (
+		SELECT seq, data FROM `+table+` WHERE tenant_id=$1 AND ($2='' OR case_id=$2) ORDER BY seq DESC LIMIT $3) x ORDER BY seq`,
+			p.Tenant, caseID, limit)
+	}
+	rows, err := q("cm_event")
+	if err == nil && len(rows) == 0 && caseID != "" {
+		return q("cm_event_archive")
+	}
 	return rows, err
 }
 

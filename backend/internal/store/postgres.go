@@ -229,7 +229,11 @@ func (p *Postgres) PutCase(ctx context.Context, c *Case) error {
 	return nil
 }
 func (p *Postgres) GetCase(ctx context.Context, id string) (*Case, error) {
-	return one[Case](ctx, p.q(ctx), `SELECT data FROM cm_case WHERE tenant_id=$1 AND id=$2`, p.Tenant, id)
+	c, err := one[Case](ctx, p.q(ctx), `SELECT data FROM cm_case WHERE tenant_id=$1 AND id=$2`, p.Tenant, id)
+	if errors.Is(err, ErrNotFound) {
+		return p.archivedCase(ctx, id) // closed long ago: read-only from the archive
+	}
+	return c, err
 }
 func (p *Postgres) ListCases(ctx context.Context, key, vid string, limit int) ([]*Case, error) {
 	if limit <= 0 {
@@ -268,7 +272,18 @@ func (p *Postgres) ListWork(ctx context.Context, f WorkFilter) ([]*Work, error) 
 	for _, r := range f.Roles {
 		star = star || r == "*"
 	}
-	return many[Work](ctx, p.q(ctx), `SELECT data FROM cm_work WHERE tenant_id=$1
+	if f.CaseID != "" { // a case page also shows work of archived cases
+		ws, err := p.listWork(ctx, "cm_work", f, all, star, st)
+		if err != nil || len(ws) > 0 {
+			return ws, err
+		}
+		return p.listWork(ctx, "cm_work_archive", f, all, star, st)
+	}
+	return p.listWork(ctx, "cm_work", f, all, star, st)
+}
+
+func (p *Postgres) listWork(ctx context.Context, table string, f WorkFilter, all, star bool, st []string) ([]*Work, error) {
+	return many[Work](ctx, p.q(ctx), `SELECT data FROM `+table+` WHERE tenant_id=$1
 		AND ($2='' OR case_id=$2)
 		AND (cardinality($3::text[])=0 OR status=ANY($3))
 		AND ($4 OR ($5<>'' AND assignee=$5) OR (assignee IS NULL AND ($6 OR role=ANY($7))))

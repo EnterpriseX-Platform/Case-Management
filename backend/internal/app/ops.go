@@ -16,7 +16,7 @@ import (
 
 // Counters exported on /metrics.
 var Metrics struct {
-	Steps, JobsDone, JobsRetried, JobsFailed, Incidents, Conflicts, TimersFired, MailSent, MailFailed atomic.Int64
+	Steps, JobsDone, JobsRetried, JobsFailed, Incidents, Conflicts, TimersFired, MailSent, MailFailed, Archived atomic.Int64
 }
 
 // tx runs fn in a transaction and transparently re-runs it when another

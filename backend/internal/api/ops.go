@@ -25,6 +25,7 @@ func metrics(w http.ResponseWriter, _ *http.Request) {
 	c("cm_timers_fired_total", "Timers fired.", m.TimersFired.Load())
 	c("cm_mail_sent_total", "Outbox messages delivered: e-mail (or dropped without SMTP), webhooks, broker events.", m.MailSent.Load())
 	c("cm_mail_failed_total", "E-mails given up after retries.", m.MailFailed.Load())
+	c("cm_cases_archived_total", "Closed cases moved to the archive.", m.Archived.Load())
 	c("cm_http_requests_total", "HTTP API requests.", httpRequests.Load())
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
