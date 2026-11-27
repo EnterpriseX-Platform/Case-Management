@@ -783,6 +783,9 @@ func writeErr(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		code = http.StatusNotFound
+	case errors.Is(err, errUnauthorized):
+		code = http.StatusUnauthorized
+		w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token"`)
 	case errors.Is(err, app.ErrForbidden):
 		code = http.StatusForbidden
 	case errors.Is(err, app.ErrInvalid):

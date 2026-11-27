@@ -44,7 +44,9 @@ func NewOIDC(issuer, audience, rolesClaim string) *OIDC {
 		Client: &http.Client{Timeout: 10 * time.Second}}
 }
 
-var errUnauthorized = fmt.Errorf("%w: missing or invalid token", app.ErrForbidden)
+// errUnauthorized means no valid identity (401); app.ErrForbidden means the
+// identity lacks a role (403).
+var errUnauthorized = errors.New("missing or invalid token")
 
 // Auth implements Server.Auth.
 func (o *OIDC) Auth(r *http.Request) (app.Actor, error) {

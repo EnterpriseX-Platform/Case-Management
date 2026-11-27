@@ -65,10 +65,10 @@ async function call<T>(method: string, path: string, body?: unknown, raw?: BodyI
   const r = await fetch(path, init);
   const text = await r.text();
   const data = text ? JSON.parse(text) : null;
-  if (r.status === 403 && token === null && sessionStorage.getItem("cm.token")) {
-    // expired SSO session: sign in again
+  if ((r.status === 401 || (r.status === 403 && token === null && sessionStorage.getItem("cm.token"))) && s) {
+    // expired or rejected session: sign in again (once, not from the login page)
     setSession(null);
-    location.assign("/login");
+    if (!location.pathname.startsWith("/login") && !location.pathname.startsWith("/auth/")) location.assign("/login");
   }
   if (!r.ok) throw new ApiError(r.status, data?.error ?? r.statusText);
   return data as T;

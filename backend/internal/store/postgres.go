@@ -32,9 +32,21 @@ func NewPostgres(ctx context.Context, url, tenant string) (*Postgres, error) {
 	return &Postgres{pool: pool, Tenant: tenant}, nil
 }
 
+// Migrate runs the (idempotent) scripts under a cluster-wide advisory lock,
+// so API and worker replicas starting together do not race on DDL.
 func (p *Postgres) Migrate(ctx context.Context, scripts ...string) error {
+	conn, err := p.pool.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
+	const lockKey = 0x636d6d6967 // "cmmig"
+	if _, err := conn.Exec(ctx, "SELECT pg_advisory_lock($1)", lockKey); err != nil {
+		return err
+	}
+	defer conn.Exec(context.WithoutCancel(ctx), "SELECT pg_advisory_unlock($1)", lockKey)
 	for _, sql := range scripts {
-		if _, err := p.pool.Exec(ctx, sql); err != nil {
+		if _, err := conn.Exec(ctx, sql); err != nil {
 			return err
 		}
 	}

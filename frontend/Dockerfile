@@ -1,7 +1,9 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund
+# cache downloads between builds; tolerate slow registries
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --no-audit --no-fund --prefer-offline --fetch-retries=5 --fetch-timeout=600000
 COPY . .
 ARG API_URL=http://api:8080
 ENV API_URL=$API_URL

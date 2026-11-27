@@ -1,5 +1,6 @@
 // Build, test and deploy to QA. Promote to UAT only after QA passes
-// (run again with DEPLOY_ENV=uat).
+// (run again with DEPLOY_ENV=uat). First time per environment, apply
+// deploy/k8s/case-management.yaml into the namespace.
 pipeline {
   agent any
   parameters {
@@ -25,7 +26,7 @@ pipeline {
           cd backend
           go vet ./...
           go test ./... -count=1
-          CM_TEST_DATABASE_URL="postgres://cm:ci@127.0.0.1:$PORT/cm?sslmode=disable" go test ./internal/app/ -count=1 -v
+          CM_TEST_DATABASE_URL="postgres://cm:ci@127.0.0.1:$PORT/cm?sslmode=disable" go test ./internal/... -count=1
         '''
       }
       post { always { sh 'docker rm -f cm-ci-pg-$BUILD_NUMBER || true' } }
@@ -38,7 +39,7 @@ pipeline {
       steps {
         sh '''
           docker build -t $REGISTRY/cm-api:$TAG backend
-          docker build -t $REGISTRY/cm-web:$TAG frontend
+          docker build --build-arg API_URL=http://cm-api:8080 -t $REGISTRY/cm-web:$TAG frontend
           docker push $REGISTRY/cm-api:$TAG
           docker push $REGISTRY/cm-web:$TAG
         '''

@@ -8,7 +8,8 @@ export const oidc = {
   clientId: process.env.NEXT_PUBLIC_OIDC_CLIENT_ID ?? "",
   scope: process.env.NEXT_PUBLIC_OIDC_SCOPE ?? "openid profile email",
   rolesClaim: process.env.NEXT_PUBLIC_OIDC_ROLES_CLAIM ?? "roles",
-  devLogin: process.env.NEXT_PUBLIC_DEV_LOGIN !== "0",
+  // dev sign-in is off when SSO is configured, unless NEXT_PUBLIC_DEV_LOGIN=1
+  devLogin: process.env.NEXT_PUBLIC_DEV_LOGIN ? process.env.NEXT_PUBLIC_DEV_LOGIN !== "0" : !process.env.NEXT_PUBLIC_OIDC_ISSUER,
 };
 export const oidcEnabled = () => !!(oidc.issuer && oidc.clientId);
 

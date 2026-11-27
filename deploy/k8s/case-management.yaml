@@ -1,0 +1,95 @@
+# Case Management on Kubernetes: API, workers and web scale independently.
+# Apply into one namespace per environment, e.g.
+#   kubectl -n case-management-qa apply -f deploy/k8s/case-management.yaml
+# The Jenkinsfile then rolls new image tags with `kubectl set image`.
+# Create the secret first (values are examples):
+#   kubectl -n case-management-qa create secret generic cm-secrets \
+#     --from-literal=DATABASE_URL='postgres://cm:...@db:5432/cm?sslmode=require' \
+#     --from-literal=CALLBACK_SECRET='...'
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cm-config
+data:
+  PUBLIC_URL: "https://cases.example.com"
+  TENANT: "default"
+  # OIDC_ISSUER: "https://sso.example.com/realms/main"
+  # OIDC_AUDIENCE: "cm-web"
+  # OIDC_ROLES_CLAIM: "realm_access.roles"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cm-api
+  labels: { app: cm-api }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: cm-api } }
+  template:
+    metadata: { labels: { app: cm-api } }
+    spec:
+      containers:
+        - name: api
+          image: registry.example.com/cm/cm-api:latest
+          env: [{ name: MODE, value: api }]
+          envFrom: [{ configMapRef: { name: cm-config } }, { secretRef: { name: cm-secrets } }]
+          ports: [{ containerPort: 8080 }]
+          readinessProbe: { httpGet: { path: /healthz, port: 8080 }, periodSeconds: 5 }
+          livenessProbe: { httpGet: { path: /healthz, port: 8080 }, periodSeconds: 20 }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 512Mi }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cm-worker
+  labels: { app: cm-worker }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: cm-worker } }
+  template:
+    metadata: { labels: { app: cm-worker } }
+    spec:
+      containers:
+        - name: worker
+          image: registry.example.com/cm/cm-api:latest
+          env: [{ name: MODE, value: worker }]
+          envFrom: [{ configMapRef: { name: cm-config } }, { secretRef: { name: cm-secrets } }]
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 512Mi }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cm-web
+  labels: { app: cm-web }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: cm-web } }
+  template:
+    metadata: { labels: { app: cm-web } }
+    spec:
+      containers:
+        - name: web
+          image: registry.example.com/cm/cm-web:latest
+          ports: [{ containerPort: 3000 }]
+          readinessProbe: { httpGet: { path: /login, port: 3000 }, periodSeconds: 10 }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: cm-api }
+spec:
+  selector: { app: cm-api }
+  ports: [{ port: 8080, targetPort: 8080 }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: cm-web }
+spec:
+  selector: { app: cm-web }
+  ports: [{ port: 3000, targetPort: 3000 }]
