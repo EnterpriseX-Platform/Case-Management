@@ -77,7 +77,7 @@ export default function TaskPage() {
         <Err e={e} />
         {!done && (
           <div className="bar">
-            <button className="btn" disabled={busy} onClick={submit}>{w.ui === "none" ? "Mark as done" : "Submit"}</button>
+            <button className="btn" disabled={busy} onClick={submit}>{t(w.ui === "none" ? "Mark as done" : "Submit")}</button>
             {!mine && !w.assignee && <button className="btn-o" onClick={() => api.post(`/api/work/${w.id}/claim`).then(reload).catch((x) => setE(x.message))}>{t("Claim")}</button>}
           </div>
         )}

@@ -42,3 +42,14 @@ export function loopLabel(input?: Record<string, unknown>) {
   const v = Object.entries(input ?? {}).find(([k]) => k !== "loopCounter");
   return v ? ` · ${String(v[1])}` : "";
 }
+
+/** Display value of a case data field: option labels, yes/no, numbers. */
+export function fieldValue(v: unknown, f?: { type?: string; options?: { value: string; label: string }[] }) {
+  if (v === undefined || v === null || v === "") return "-";
+  const opt = (x: unknown) => f?.options?.find((o) => o.value === String(x))?.label ?? String(x);
+  if (Array.isArray(v)) return v.map(opt).join(", ");
+  if (f?.options?.length) return opt(v);
+  if (f?.type === "money" || f?.type === "number" || typeof v === "number") return money(v);
+  if (f?.type === "boolean" || typeof v === "boolean") return v ? t("Yes") : t("No");
+  return String(v);
+}

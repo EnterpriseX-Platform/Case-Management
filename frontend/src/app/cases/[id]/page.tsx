@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, ActionView, Audit, Case, CaseModel, EventRec, Form, StageView, Version, Work } from "@/lib/api";
-import { dt, loopLabel, money, overdue } from "@/lib/format";
+import { dt, fieldValue, loopLabel, money, overdue } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import { useDialog } from "@/components/useDialog";
 import { useLoad } from "@/lib/useLoad";
@@ -26,13 +26,7 @@ type CaseView = {
 };
 type Tab = "work" | "data" | "related" | "timeline" | "flow";
 
-function fmt(v: unknown, type?: string) {
-  if (v === undefined || v === null || v === "") return "-";
-  if (type === "money" || type === "number" || typeof v === "number") return money(v);
-  if (type === "boolean" || typeof v === "boolean") return v ? t("Yes") : t("No");
-  if (Array.isArray(v)) return v.join(", ");
-  return String(v);
-}
+const fmt = (v: unknown, f?: Parameters<typeof fieldValue>[1] | string) => fieldValue(v, typeof f === "string" ? { type: f } : f);
 
 export default function CasePage() {
   const { id } = useParams<{ id: string }>();
@@ -111,7 +105,7 @@ export default function CasePage() {
       <StageBar stages={data.stages ?? []} />
       <div className="case-head">
         <div className="kv1"><span>{t("Stage")}</span><span>{stageName(c.stage) ?? "-"}</span></div>
-        {summary.map((f) => <div key={f.key} className="kv1"><span>{f.label}</span><span>{fmt(c.instance.vars[f.key], f.type)}</span></div>)}
+        {summary.map((f) => <div key={f.key} className="kv1"><span>{f.label}</span><span>{fmt(c.instance.vars[f.key], f)}</span></div>)}
         <div className="kv1"><span>{t("Initiator")}</span><span>{c.createdBy}</span></div>
         <div className="kv1"><span>{t("Created")}</span><span>{dt(c.createdAt)}</span></div>
         {data.parent && <div className="kv1"><span>{t("Parent case")}</span><Link href={`/cases/${data.parent.id}`}>{data.parent.number}</Link></div>}
@@ -165,7 +159,7 @@ export default function CasePage() {
       {tab === "data" && (
         <section className="card">
           <dl className="kv">
-            {(model?.data.length ? model.data.map((f) => [f.label + (f.calc ? " ƒ" : ""), fmt(c.instance.vars[f.key], f.type)] as const)
+            {(model?.data.length ? model.data.map((f) => [f.label + (f.calc ? " ƒ" : ""), fmt(c.instance.vars[f.key], f)] as const)
               : Object.entries(c.instance.vars).filter(([, v]) => typeof v !== "object" || Array.isArray(v)).map(([k, v]) => [k, fmt(v)] as const))
               .map(([k, v]) => <span key={k} style={{ display: "contents" }}><dt>{k}</dt><dd>{v}</dd></span>)}
           </dl>

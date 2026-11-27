@@ -3,7 +3,7 @@
 import { t } from "@/lib/i18n";
 import Link from "next/link";
 import { Case, Screen, Widget, Audit, Version } from "@/lib/api";
-import { dt, money, th } from "@/lib/format";
+import { dt, fieldValue, money, th } from "@/lib/format";
 import { Viewer } from "./Bpmn";
 import { Status } from "./ui";
 import { KPIs, MyCases, MyWork, NewCase } from "./PortalWidgets";
@@ -60,13 +60,13 @@ function W({ w, ctx }: { w: Widget; ctx: Ctx }) {
           <dl className="kv">
             <dt>{t("No.")}</dt><dd><Link href={`/cases/${c.id}`}>{c.number}</Link></dd>
             <dt>{t("Case")}</dt><dd>{c.title}</dd>
-            <dt>{t("Fiscal year")}</dt><dd>{c.fiscalYear ? c.fiscalYear : "-"}</dd>
+            {c.fiscalYear ? <><dt>{t("Fiscal year")}</dt><dd>{c.fiscalYear}</dd></> : null}
             <dt>{t("Status")}</dt><dd><Status s={c.status} /></dd>
-            <dt>flow</dt><dd>{c.processKey} v{ctx.version?.no ?? "?"}</dd>
+            <dt className="dev-only">flow</dt><dd className="dev-only">{c.processKey} v{ctx.version?.no ?? "?"}</dd>
             <dt>{t("Initiator")}</dt><dd>{c.createdBy}</dd>
             <dt>{t("Created")}</dt><dd>{dt(c.createdAt)}</dd>
           </dl>
-          <Vars vars={ctx.vars ?? c.instance.vars} />
+          <Vars vars={ctx.vars ?? c.instance.vars} model={ctx.version?.model} />
         </div>
       ) : null;
     case "history":
@@ -131,15 +131,19 @@ function W({ w, ctx }: { w: Widget; ctx: Ctx }) {
   }
 }
 
-function Vars({ vars }: { vars: Record<string, unknown> }) {
+// Case data with the field labels of the case model; values the model does
+// not describe are technical and only shown in developer view.
+function Vars({ vars, model }: { vars: Record<string, unknown>; model?: Version["model"] }) {
   const skip = new Set(["caseNumber", "initiator", "fiscalYear"]);
-  const e = Object.entries(vars).filter(([k, v]) => !skip.has(k) && (typeof v !== "object" || Array.isArray(v)));
-  if (!e.length) return null;
+  const fields = model?.data ?? [];
+  const known = new Set(fields.map((f) => f.key));
+  const extra = Object.entries(vars).filter(([k, v]) => !skip.has(k) && !known.has(k) && (typeof v !== "object" || Array.isArray(v)));
+  const rows = fields.filter((f) => vars[f.key] !== undefined && vars[f.key] !== null && vars[f.key] !== "");
+  if (!rows.length && !extra.length) return null;
   return (
     <dl className="kv kv-vars">
-      {e.map(([k, v]) => (
-        <span key={k} style={{ display: "contents" }}><dt>{k}</dt><dd>{typeof v === "number" ? money(v) : Array.isArray(v) ? v.join(", ") : String(v)}</dd></span>
-      ))}
+      {rows.map((f) => <span key={f.key} style={{ display: "contents" }}><dt>{f.label}</dt><dd>{fieldValue(vars[f.key], f)}</dd></span>)}
+      {extra.map(([k, v]) => <span key={k} className="dev-only" style={{ display: "contents" }}><dt className="mono">{k}</dt><dd>{fieldValue(v)}</dd></span>)}
     </dl>
   );
 }

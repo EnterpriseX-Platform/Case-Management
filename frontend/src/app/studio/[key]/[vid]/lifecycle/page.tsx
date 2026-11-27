@@ -4,7 +4,7 @@
 // are generated on save.
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { api, CaseModel, Form, Lifecycle, LCStage, LCStep, ProcessDef, Version } from "@/lib/api";
+import { api, CaseModel, DataFieldDef, Form, Lifecycle, LCStage, LCStep, ProcessDef, Queue, UserProfile, Version } from "@/lib/api";
 import { t } from "@/lib/i18n";
 import { useLoad } from "@/lib/useLoad";
 import Dropdown from "@/components/Dropdown";
@@ -25,7 +25,10 @@ export default function LifecyclePage() {
   const { data: v, reload: reloadV } = useLoad(() => api.get<Version>(`/api/versions/${vid}`), [vid]);
   const { data: loaded } = useLoad(() => api.get<Lifecycle>(`/api/versions/${vid}/lifecycle`), [vid]);
   const { data: model } = useLoad(() => api.get<CaseModel>(`/api/versions/${vid}/model`), [vid]);
-  const { data: forms } = useLoad(() => api.get<Form[]>("/api/forms"));
+  const { data: forms, reload: reloadForms } = useLoad(() => api.get<Form[]>("/api/forms"));
+  const { data: users } = useLoad(() => api.get<UserProfile[]>("/api/users").catch(() => [] as UserProfile[]));
+  const { data: queues } = useLoad(() => api.get<Queue[]>("/api/queues").catch(() => [] as Queue[]));
+  const [mkForm, setMkForm] = useState<string[] | null>(null);
   const { data: procs } = useLoad(() => api.get<ProcessDef[]>("/api/processes"));
   const [l, setL] = useState<Lifecycle>({ stages: [] });
   const [sel, setSel] = useState<{ s: number; i: number } | null>(null);
@@ -35,6 +38,7 @@ export default function LifecyclePage() {
   const [msg, setMsg] = useState<string>();
   const [dirty, setDirty] = useState(false);
   useEffect(() => { if (loaded) setL({ ...loaded, stages: loaded.stages ?? [] }); }, [loaded]);
+  useEffect(() => setMkForm(null), [sel?.s, sel?.i]);
 
   const draft = v?.status === "draft" && !l.detached;
   const upd = (next: Lifecycle) => { setL(next); setDirty(true); setMsg(undefined); };
@@ -103,6 +107,23 @@ export default function LifecyclePage() {
     { ok: !dirty, text: dirty ? t("There are unsaved changes") : t("All changes are saved") },
   ];
   const fieldOpts = (model?.data ?? []).map((f) => ({ value: f.key, label: f.label }));
+  // roles people already have, roles queues serve, and roles used in this lifecycle
+  const roleOpts = Array.from(new Set([
+    ...(users ?? []).flatMap((u) => u.roles ?? []), ...(queues ?? []).flatMap((q) => q.roles ?? []),
+    ...l.stages.flatMap((x) => x.steps.map((y) => y.role ?? "")),
+  ].filter((r) => r && !r.startsWith("queue:")))).sort().map((r) => ({ value: r, label: r }));
+  const inputFields = (model?.data ?? []).filter((f) => !f.calc);
+  const createForm = async () => {
+    if (!step || !mkForm?.length || !v) return;
+    const key = `${v.processKey}-${step.key}`;
+    const fields = mkForm.map((k) => inputFields.find((f) => f.key === k)!).filter(Boolean).map(formField);
+    try {
+      await api.put(`/api/forms/${key}`, { key, name: step.name, schema: { fields } });
+      setStep({ form: key });
+      setMkForm(null);
+      reloadForms();
+    } catch (x: any) { setE(x.message); }
+  };
   const targets = [{ value: "end", label: t("End the case (rejected)") }, ...l.stages.filter((x) => x.kind !== "resolution").map((x) => ({ value: x.key, label: `${t("Stage")}: ${x.name}` })),
     ...l.stages.flatMap((x) => x.steps).filter((x) => x.key !== step?.key).map((x) => ({ value: x.key, label: `${t("Step")}: ${x.name}` }))];
 
@@ -163,8 +184,21 @@ export default function LifecyclePage() {
               <Field label={t("Name")}><input value={step.name} disabled={!draft} onChange={(x) => setStep({ name: x.target.value })} /></Field>
               <Field label={t("Type")}><Dropdown options={KINDS.map((k) => ({ value: k.value, label: t(k.label) }))} value={step.kind} disabled={!draft} onChange={(k) => setStep({ kind: k })} /></Field>
               {["task", "approval"].includes(step.kind) && <>
-                <Field label={t("Role")}><input value={step.role ?? ""} disabled={!draft} onChange={(x) => setStep({ role: x.target.value })} /></Field>
-                <Field label={t("Form")}><Dropdown options={(forms ?? []).map((f) => ({ value: f.key, label: f.name }))} value={step.form} disabled={!draft} onChange={(x) => setStep({ form: x })} placeholder="—" /></Field>
+                <Field label={t("Role")}><Dropdown options={roleOpts} value={step.role} allowCustom disabled={!draft} onChange={(x) => setStep({ role: x })} placeholder="—" /></Field>
+                <Field label={t("Form")}><Dropdown options={(forms ?? []).map((f) => ({ value: f.key, label: f.name, hint: f.key }))} value={step.form} disabled={!draft} onChange={(x) => setStep({ form: x })} placeholder="—" /></Field>
+                {draft && inputFields.length > 0 && (mkForm === null
+                  ? <button className="link" onClick={() => setMkForm(step.kind === "approval" && step.decisionField ? [step.decisionField] : [])}>{t("Create form from case data")}</button>
+                  : <div className="mk-form">
+                      <div className="small muted">{t("Fields on the form")}</div>
+                      {inputFields.map((f) => (
+                        <label key={f.key} className="chk">
+                          <input type="checkbox" checked={mkForm.includes(f.key)}
+                            onChange={(x) => setMkForm(x.target.checked ? [...mkForm, f.key] : mkForm.filter((k) => k !== f.key))} />
+                          <span>{f.label}</span>
+                        </label>
+                      ))}
+                      <div className="bar"><button className="btn-s" disabled={!mkForm.length} onClick={createForm}>{t("Create form")}</button><button className="link" onClick={() => setMkForm(null)}>{t("Cancel")}</button></div>
+                    </div>)}
                 <Field label="SLA"><Dropdown options={SLA} value={step.sla} allowCustom disabled={!draft} onChange={(x) => setStep({ sla: x })} placeholder="—" /></Field>
                 <Field label={t("One task per item of")}><Dropdown options={fieldOpts} value={step.multi} disabled={!draft} onChange={(x) => setStep({ multi: x })} placeholder="—" /></Field>
               </>}
@@ -204,4 +238,14 @@ export default function LifecyclePage() {
       {v && <section className="card mt"><h3>{t("Generated flow")}</h3><Viewer xml={v.bpmn} active={step ? [step.key.replace(/-/g, "_")] : []} /></section>}
     </div>
   );
+}
+
+// Case data types map onto form controls of the same meaning.
+const CONTROL: Record<string, string> = { text: "text", longtext: "textarea", number: "number", money: "money", date: "date",
+  boolean: "checkbox", enum: "select", list: "multiselect", user: "user", org: "org", reference: "text" };
+function formField(f: DataFieldDef) {
+  return {
+    key: f.key, label: f.label, type: CONTROL[f.type] ?? "text",
+    ...(f.required ? { required: true } : {}), ...(f.options?.length ? { options: f.options } : {}), ...(f.help ? { help: f.help } : {}),
+  };
 }

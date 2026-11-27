@@ -73,9 +73,15 @@ export default function Versions() {
                 ))}
                 {has(s, "cm:designer") && (
                   <button className="link" onClick={async () => {
-                    const y = await dlg.prompt(t("New version"), t("Fiscal year of the new version"), v.fiscalYear ? String(v.fiscalYear + 1) : "", { ok: t("Create") });
-                    if (y) act(api.post<Version>(`/api/versions/${v.id}/clone`, { fiscalYear: Number(y) }).then((n) => r.push(`/studio/${key}/${n.id}/lifecycle`)));
-                  }}>{t("Copy for next year")}</button>
+                    // case types versioned by fiscal year pick the year; others just get a new revision
+                    let fy = 0;
+                    if (v.fiscalYear) {
+                      const y = await dlg.prompt(t("New version"), t("Fiscal year of the new version"), String(v.fiscalYear + 1), { ok: t("Create") });
+                      if (!y) return;
+                      fy = Number(y);
+                    }
+                    act(api.post<Version>(`/api/versions/${v.id}/clone`, { fiscalYear: fy }).then((n) => r.push(`/studio/${key}/${n.id}/lifecycle`)));
+                  }}>{t(v.fiscalYear ? "Copy for next year" : "New version")}</button>
                 )}
               </td>
             </tr>

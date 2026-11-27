@@ -87,6 +87,7 @@ export type ProcessDef = { id: string; key: string; name: string; description?: 
 export type Version = {
   id: string; processKey: string; no: number; status: string; fiscalYear?: number; bpmn: string; note?: string;
   createdBy: string; approvedBy?: string; publishedAt?: string; createdAt: string; clonedFrom?: string;
+  model?: CaseModel | null;
 };
 export type Binding = {
   versionId?: string; nodeId: string; ui: "form" | "external" | "none"; formKey?: string; screenKey?: string;

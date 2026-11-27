@@ -114,6 +114,9 @@ func (s *Service) Clone(ctx context.Context, by Actor, vid string, fy int) (*sto
 	if err != nil {
 		return nil, err
 	}
+	if fy == 0 {
+		fy = src.FiscalYear // a revision of the same year unless a new year is given
+	}
 	v, _, err := s.CreateDraft(ctx, by, src.ProcessKey, src.BPMN, fmt.Sprintf("cloned from v%d", src.No), fy)
 	if err != nil {
 		return nil, err
@@ -176,9 +179,6 @@ func (s *Service) Transition(ctx context.Context, by Actor, vid, action string) 
 			if err := need(store.Approved, RoleApprover); err != nil {
 				return err
 			}
-			if v.FiscalYear == 0 {
-				return invalid("set the fiscal year before publishing")
-			}
 			p, _, err := ValidateBPMN(v.BPMN)
 			if err != nil {
 				return err
@@ -197,7 +197,8 @@ func (s *Service) Transition(ctx context.Context, by Actor, vid, action string) 
 				return err
 			}
 			for _, o := range vs {
-				if o.ID != v.ID && o.Status == store.Published && o.FiscalYear == v.FiscalYear {
+				// a version without a fiscal year replaces every published version
+				if o.ID != v.ID && o.Status == store.Published && (o.FiscalYear == v.FiscalYear || v.FiscalYear == 0) {
 					o.Status = store.Deprecated // running cases keep using it
 					if err := s.S.PutVersion(ctx, o); err != nil {
 						return err

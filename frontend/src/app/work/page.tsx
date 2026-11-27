@@ -19,8 +19,8 @@ export default function Inbox() {
   return (
     <Page title={t("Inbox")} actions={<button className="btn" onClick={() => api.post<Work>("/api/work/next").then((w) => r.push(`/work/${w.id}`)).catch((x) => setE(x.status === 404 ? t("No work waiting in your queues") : x.message))}>{t("Get next work")}</button>}>
       <div className="tabs">
-        <button className={tab === "mine" ? "on" : ""} onClick={() => setTab("mine")}>My work ({(data ?? []).filter((w) => w.assignee === s?.id).length})</button>
-        <button className={tab === "queue" ? "on" : ""} onClick={() => setTab("queue")}>Role queue ({(data ?? []).filter((w) => !w.assignee).length})</button>
+        <button className={tab === "mine" ? "on" : ""} onClick={() => setTab("mine")}>{t("My work")} ({(data ?? []).filter((w) => w.assignee === s?.id).length})</button>
+        <button className={tab === "queue" ? "on" : ""} onClick={() => setTab("queue")}>{t("Role queue")} ({(data ?? []).filter((w) => !w.assignee).length})</button>
       </div>
       <Err e={error ?? e} />
       {list.length ? (

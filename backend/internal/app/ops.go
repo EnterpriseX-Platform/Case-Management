@@ -77,6 +77,12 @@ func (s *Service) applyOps(ctx context.Context, c *store.Case, p *bpmn.Process, 
 // closes incidents whose token was moved or cancelled.
 func (s *Service) persist(ctx context.Context, c *store.Case, p *bpmn.Process) error {
 	in := c.Instance
+	ended := "" // end event reached in this step, if any
+	for _, h := range in.History {
+		if n := p.Nodes[h.Node]; n != nil && n.Type == bpmn.EndEvent && h.Event == "enter" {
+			ended = h.Node
+		}
+	}
 	if len(in.History) > 0 {
 		ev := make([]store.EventRec, 0, len(in.History))
 		for _, h := range in.History {
@@ -88,7 +94,7 @@ func (s *Service) persist(ctx context.Context, c *store.Case, p *bpmn.Process) e
 		}
 		in.History = nil
 	}
-	s.trackStage(ctx, c, p)
+	s.trackStage(ctx, c, p, ended)
 	var open []*store.IncidentRec
 	if c.Incidents > 0 {
 		var err error

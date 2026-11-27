@@ -524,5 +524,8 @@
  "incident": "ขัดข้อง",
  "migrate": "ย้าย",
  "cancel": "ยกเลิก",
- "error": "ข้อผิดพลาด"
+ "error": "ข้อผิดพลาด",
+ "Create form from case data": "สร้างฟอร์มจากข้อมูลเรื่อง",
+ "Fields on the form": "ช่องที่อยู่บนฟอร์ม",
+ "Create form": "สร้างฟอร์ม"
 }

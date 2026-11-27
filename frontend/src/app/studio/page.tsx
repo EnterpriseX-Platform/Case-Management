@@ -29,7 +29,7 @@ export default function Studio() {
     if (!n) return;
     try {
       await api.post("/api/processes", { key: n.key, name: n.name });
-      const res = await api.post<{ version: Version }>(`/api/processes/${n.key}/versions`, { bpmn: BLANK, fiscalYear: new Date().getFullYear() + 1 });
+      const res = await api.post<{ version: Version }>(`/api/processes/${n.key}/versions`, { bpmn: BLANK });
       await api.put(`/api/versions/${res.version.id}/lifecycle`, STARTER);
       r.push(`/studio/${n.key}/${res.version.id}/lifecycle`);
     } catch (x: any) { setE(x.message); }

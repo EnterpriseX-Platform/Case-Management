@@ -184,11 +184,19 @@ func stageOf(m *CaseModel, p *bpmn.Process, node string) string {
 
 // currentStage derives the stage from the case's tokens (the furthest
 // primary stage wins when parallel branches span stages).
-func currentStage(m *CaseModel, p *bpmn.Process, c *store.Case) string {
+func currentStage(m *CaseModel, p *bpmn.Process, c *store.Case, ended string) string {
 	if m == nil || len(m.Stages) == 0 {
 		return ""
 	}
 	if c.Instance.Status == engine.Completed || c.Instance.Status == engine.Cancelled {
+		// ended in an alternate stage (e.g. rejected): the case stays there
+		if ended != "" {
+			if k := stageOf(m, p, ended); k != "" {
+				if st := m.Stage(k); st != nil && st.Kind == "alternate" {
+					return k
+				}
+			}
+		}
 		if c.Stage != "" {
 			if st := m.Stage(c.Stage); st != nil && st.Kind == "resolution" {
 				return c.Stage
@@ -471,12 +479,12 @@ func (s *Service) CaseOverview(ctx context.Context, by Actor, c *store.Case) ([]
 }
 
 // trackStage updates the case's current stage and stage history.
-func (s *Service) trackStage(ctx context.Context, c *store.Case, p *bpmn.Process) {
+func (s *Service) trackStage(ctx context.Context, c *store.Case, p *bpmn.Process, ended string) {
 	v, err := s.S.GetVersion(ctx, c.VersionID)
 	if err != nil || v.Model == nil {
 		return
 	}
-	next := currentStage(v.Model, p, c)
+	next := currentStage(v.Model, p, c, ended)
 	if next == "" || next == c.Stage {
 		return
 	}

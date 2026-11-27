@@ -46,7 +46,7 @@ export default function Dropdown({ options, value, onChange, multiple, placehold
       <button type="button" className="dd-btn" disabled={disabled} onClick={() => setOpen(!open)}
         aria-haspopup="listbox" aria-expanded={open}>
         <span className={sel.length ? "" : "muted"}>
-          {sel.length ? sel.map(label).join(", ") : placeholder}
+          {sel.length ? sel.map(label).join(", ") : t(placeholder)}
         </span>
         <span className="dd-caret">▾</span>
       </button>

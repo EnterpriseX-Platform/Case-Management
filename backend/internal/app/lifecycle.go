@@ -163,12 +163,24 @@ func GenerateBPMN(processKey, name string, l *Lifecycle) (string, *CaseModel, []
 				nodes = append(nodes, node{id: id, tag: tag, name: s.Name, attrs: attrs, inner: inner, x: cx, y: line + (80-h)/2, w: w, h: h})
 				flows = append(flows, flow{gw + "_do", gw, id, "${" + s.When + "}"})
 				cx += 160
-				nodes = append(nodes, node{id: join, tag: "exclusiveGateway", x: cx, y: line + 15, w: 50, h: 50})
-				addFlow(id, join, "")
+				if s.Kind == "approval" { // the decision belongs to the branch; skipping it is not a rejection
+					ok := id + "_ok"
+					nodes = append(nodes, node{id: ok, tag: "exclusiveGateway", name: s.Name + "?", attrs: fmt.Sprintf(` default="%s_no"`, ok), x: cx, y: line + 15, w: 50, h: 50})
+					addFlow(id, ok, "")
+					pendingRejects = append(pendingRejects, struct{ gw, target string }{ok, firstNonEmpty(s.OnReject, "end")})
+					ids = append(ids, ok)
+					cx += 90
+					nodes = append(nodes, node{id: join, tag: "exclusiveGateway", x: cx, y: line + 15, w: 50, h: 50})
+					flows = append(flows, flow{ok + "_yes", ok, join, "${" + firstNonEmpty(s.DecisionField, id+"_approved") + " == true}"})
+				} else {
+					nodes = append(nodes, node{id: join, tag: "exclusiveGateway", x: cx, y: line + 15, w: 50, h: 50})
+					addFlow(id, join, "")
+				}
 				flows = append(flows, flow{gw + "_skip", gw, join, ""})
 				ids = append(ids, gw, id, join)
 				cur = join
 				cx += 90
+				continue
 			} else {
 				nodes = append(nodes, node{id: id, tag: tag, name: s.Name, attrs: attrs, inner: inner, x: cx, y: line + (80-h)/2, w: w, h: h})
 				ids = append(ids, id)
@@ -211,8 +223,12 @@ func GenerateBPMN(processKey, name string, l *Lifecycle) (string, *CaseModel, []
 			}
 			cur, ex, ids := emit(st, altY, D*2, "")
 			endID := sid(st.Key) + "_end"
+			if stageEntry[st.Key] == "" { // a stage without steps just ends the case there
+				stageEntry[st.Key] = endID
+			}
 			nodes = append(nodes, node{id: endID, tag: "endEvent", name: st.Name, x: ex, y: altY + 22, w: 36, h: 36})
 			link(cur, endID)
+			ids = append(ids, endID) // ending here leaves the case in this stage
 			model.Stages = append(model.Stages, store.Stage{Key: st.Key, Name: st.Name, Kind: "alternate", Steps: ids, SLA: st.SLA, Entry: stageEntry[st.Key]})
 			altY += 200
 		case "resolution":
@@ -246,11 +262,6 @@ func GenerateBPMN(processKey, name string, l *Lifecycle) (string, *CaseModel, []
 	if len(resolutions) > 0 {
 		st := resolutions[0]
 		res := store.Stage{Key: st.Key, Name: st.Name, Kind: "resolution", Steps: endIDs}
-		for _, a := range model.Stages {
-			if a.Kind == "alternate" {
-				res.Steps = append(res.Steps, sid(a.Key)+"_end")
-			}
-		}
 		model.Stages = append(model.Stages, res)
 	}
 	// screens

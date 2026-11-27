@@ -18,7 +18,7 @@ export default function Explorer() {
   useEffect(() => {
     const q = new URLSearchParams(location.search);
     const init: Record<string, string> = { status: "running" };
-    KEYS.forEach((k) => { const v = q.get(k); if (v) init[k] = v; });
+    KEYS.forEach((k) => { const v = q.get(k); if (v !== null) init[k] = v; });
     setF(init);
   }, []);
   const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => v)).toString();

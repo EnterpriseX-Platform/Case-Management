@@ -129,7 +129,7 @@ func (s *Service) StartCase(ctx context.Context, by Actor, in StartInput) (*stor
 			if fy == 0 {
 				fy = v.FiscalYear
 			}
-			if n, err := s.S.NextCaseNumber(ctx, fmt.Sprintf("%s-%d", v.ProcessKey, fy)); err == nil {
+			if n, err := s.S.NextCaseNumber(ctx, fmt.Sprintf("%s-%d", v.ProcessKey, s.numberYear(fy))); err == nil {
 				in.number = n
 			}
 		}
@@ -167,12 +167,12 @@ func (s *Service) startCase(ctx context.Context, by Actor, in StartInput, parent
 	n := in.number
 	if n == 0 {
 		var err error
-		if n, err = s.S.NextCaseNumber(ctx, fmt.Sprintf("%s-%d", v.ProcessKey, fy)); err != nil {
+		if n, err = s.S.NextCaseNumber(ctx, fmt.Sprintf("%s-%d", v.ProcessKey, s.numberYear(fy))); err != nil {
 			return nil, err
 		}
 	}
 	now := s.Now()
-	c := &store.Case{ID: id.New(), Number: fmt.Sprintf("%s-%d-%05d", strings.ToUpper(v.ProcessKey), fy, n),
+	c := &store.Case{ID: id.New(), Number: fmt.Sprintf("%s-%d-%05d", strings.ToUpper(v.ProcessKey), s.numberYear(fy), n),
 		ProcessKey: v.ProcessKey, VersionID: v.ID, Title: in.Title, FiscalYear: fy, ParentID: in.ParentID,
 		RelatedIDs: in.RelatedIDs, CreatedBy: by.ID, CreatedAt: now, UpdatedAt: now, Test: in.Test}
 	if in.Test {
@@ -784,4 +784,13 @@ func firstNonEmpty(v ...string) string {
 		}
 	}
 	return ""
+}
+
+// numberYear is the year shown in case numbers: the fiscal year for case
+// types versioned by year, otherwise the calendar year.
+func (s *Service) numberYear(fy int) int {
+	if fy != 0 {
+		return fy
+	}
+	return s.Now().Year()
 }

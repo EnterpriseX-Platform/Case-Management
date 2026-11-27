@@ -468,3 +468,18 @@ body.dev .dev-only { display: revert !important; }
 .m-heat-3:not(.djs-connection) .djs-visual > :nth-child(1) { fill: #ffb3b8 !important; stroke: var(--status-bad) !important; }
 .m-sel:not(.djs-connection) .djs-visual > :nth-child(1) { stroke: var(--cds-interactive) !important; stroke-width: 3px !important; }
 .djs-element { cursor: pointer; }
+/* low-code screen columns stack on narrow screens; long values wrap */
+.scol { min-width: 0; }
+.scol .kv dd { overflow-wrap: anywhere; min-width: 0; }
+@media (max-width: 1056px) { .srow > .scol { grid-column: 1 / -1 !important; } }
+/* read-only diagrams: zoom buttons in the top-right corner */
+.bpmn-wrap { position: relative; }
+.zoom-bar { position: absolute; top: 8px; right: 8px; display: flex; gap: 1px; background: var(--cds-border-subtle); }
+.zoom-bar button { width: 32px; height: 32px; border: 0; background: var(--cds-layer-01); color: var(--cds-text-primary); font-size: 16px; cursor: pointer; }
+.zoom-bar button:hover { background: var(--cds-layer-hover-01, #e8e8e8); }
+.bpmn-view, .bpmn-monitor { cursor: grab; }
+.mk-form { background: var(--cds-layer-02, #fff); padding: 12px; margin: 8px 0 16px; display: grid; gap: 4px; }
+.mk-form .chk { display: flex; gap: 8px; align-items: center; }
+.mk-form .bar { margin-top: 8px; }
+.mk-form .chk { justify-content: flex-start; padding: 4px 0; cursor: pointer; }
+.mk-form .chk input[type="checkbox"] { width: 16px; height: 16px; min-width: 16px; padding: 0; margin: 0; flex: none; background: none; border: 1px solid var(--cds-icon-primary, #161616); accent-color: var(--cds-interactive, #0f62fe); }

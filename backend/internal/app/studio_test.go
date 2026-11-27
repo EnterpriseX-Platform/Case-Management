@@ -168,3 +168,59 @@ func TestLifecycleApp(t *testing.T) {
 		t.Fatalf("round trip lost the model: %+v", vs)
 	}
 }
+
+// An approval may reject to an alternate stage that has no steps of its own.
+func TestLifecycleRejectToEmptyStage(t *testing.T) {
+	l := &app.Lifecycle{Stages: []store.LCStage{
+		{Key: "work", Name: "Work", Kind: "primary", Steps: []store.LCStep{
+			{Key: "do", Name: "Do", Kind: "task", Role: "r"},
+			{Key: "ok", Name: "OK?", Kind: "approval", Role: "a", OnReject: "rejected"},
+		}},
+		{Key: "rejected", Name: "Rejected", Kind: "alternate"},
+		{Key: "done", Name: "Done", Kind: "resolution"},
+	}}
+	xml, m, _, err := app.GenerateBPMN("p", "P", l)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := bpmn.ParseString(xml); err != nil {
+		t.Fatal(err)
+	}
+	if st := m.Stage("rejected"); st == nil || !strings.Contains(strings.Join(st.Steps, ","), "rejected_end") {
+		t.Fatal("ending in the rejected stage should leave the case there")
+	}
+	if !strings.Contains(xml, `sourceRef="ok_ok" targetRef="rejected_end"`) {
+		t.Fatalf("reject flow does not reach the stage end")
+	}
+}
+
+// A conditional approval that is skipped must not count as a rejection: the
+// approve/reject check sits on the branch where the step runs.
+func TestLifecycleSkippedApprovalIsNotRejection(t *testing.T) {
+	l := &app.Lifecycle{Stages: []store.LCStage{
+		{Key: "work", Name: "Work", Kind: "primary", Steps: []store.LCStep{
+			{Key: "big", Name: "Big?", Kind: "approval", Role: "a", DecisionField: "ok", When: "amount > 10", OnReject: "end"},
+		}},
+		{Key: "pay", Name: "Pay", Kind: "primary", Steps: []store.LCStep{{Key: "pay", Name: "Pay", Kind: "task", Role: "f"}}},
+	}}
+	xml, _, _, err := app.GenerateBPMN("p", "P", l)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := bpmn.ParseString(xml); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`sourceRef="big_when" targetRef="big_join"`, // skipped: straight on
+		`sourceRef="big" targetRef="big_ok"`,        // done: check the decision
+		`sourceRef="big_ok" targetRef="big_join"`,   // approved: straight on
+		`sourceRef="big_join" targetRef="pay"`,
+	} {
+		if !strings.Contains(xml, want) {
+			t.Fatalf("missing flow %s", want)
+		}
+	}
+	if strings.Contains(xml, `sourceRef="big_join" targetRef="big_ok"`) {
+		t.Fatal("skipped approval still goes through the decision")
+	}
+}
