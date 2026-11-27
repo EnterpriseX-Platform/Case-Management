@@ -101,3 +101,13 @@ func (p *Postgres) LeaseOutbox(ctx context.Context, now time.Time, lease time.Du
 func (p *Postgres) DeleteOutbox(ctx context.Context, id string) error {
 	return p.exec(ctx, `DELETE FROM cm_outbox WHERE tenant_id=$1 AND id=$2`, p.Tenant, id)
 }
+
+func (p *Postgres) PutView(ctx context.Context, v *WorkView) error {
+	return p.putDoc(ctx, "view", v.ID, v)
+}
+func (p *Postgres) ListViews(ctx context.Context) ([]*WorkView, error) {
+	return many[WorkView](ctx, p.q(ctx), `SELECT data FROM cm_doc WHERE tenant_id=$1 AND kind='view' ORDER BY key`, p.Tenant)
+}
+func (p *Postgres) DeleteView(ctx context.Context, id string) error {
+	return p.exec(ctx, `DELETE FROM cm_doc WHERE tenant_id=$1 AND kind='view' AND key=$2`, p.Tenant, id)
+}

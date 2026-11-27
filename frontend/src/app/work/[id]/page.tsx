@@ -39,7 +39,7 @@ export default function TaskPage() {
   const fields = data.form?.schema.fields ?? [];
 
   const submit = async () => {
-    const v = validate(fields, d);
+    const v = validate(fields, d, data.form?.schema.pages);
     setErrs(v);
     if (Object.keys(v).length) return;
     setBusy(true);
@@ -72,7 +72,7 @@ export default function TaskPage() {
     body = (
       <div>
         <h3>{w.name}</h3>
-        {data.form ? <FormRenderer fields={fields} data={d} onChange={setD} readOnly={done} errors={errs} />
+        {data.form ? <FormRenderer fields={fields} pages={data.form.schema.pages} data={d} onChange={setD} readOnly={done} errors={errs} />
           : <div className="muted">{t("This step has no form")}</div>}
         <Err e={e} />
         {!done && (

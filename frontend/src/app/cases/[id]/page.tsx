@@ -70,7 +70,7 @@ export default function CasePage() {
   const runAction = async () => {
     if (!action) return;
     const fields = aform?.schema.fields ?? [];
-    const v = validate(fields, adata);
+    const v = validate(fields, adata, aform?.schema.pages);
     setAerr(v);
     if (Object.keys(v).length) return;
     try {
@@ -211,7 +211,7 @@ export default function CasePage() {
         </>}>
           {action.kind === "stage" && <p>{t("The case moves to stage")} <b>{stageName(action.target)}</b>. {t("Open work in the current stage is cancelled.")}</p>}
           {action.kind === "child" && <p>{t("A new case is opened and linked to this one.")}</p>}
-          {aform && <FormRenderer fields={aform.schema.fields} data={adata} onChange={setAdata} errors={aerr} />}
+          {aform && <FormRenderer fields={aform.schema.fields} pages={aform.schema.pages} data={adata} onChange={setAdata} errors={aerr} />}
           {aerr._ && <div className="err">{aerr._}</div>}
         </Modal>
       )}

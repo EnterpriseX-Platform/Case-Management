@@ -59,11 +59,26 @@ func CheckFormSchema(f *store.Form) error {
 // ValidateForm checks submitted data against required / type rules.
 func ValidateForm(f *store.Form, data map[string]any) error {
 	var errs []string
+	// pages skipped by their condition are not filled in, so not checked
+	skipped := map[string]bool{}
+	pages, _ := f.Schema["pages"].([]any)
+	for _, pg := range pages {
+		if m, ok := pg.(map[string]any); ok {
+			if cond, _ := m["skipIf"].(string); cond != "" {
+				if yes, err := evalVisible(cond, data); err == nil && yes {
+					skipped[fmt.Sprint(m["key"])] = true
+				}
+			}
+		}
+	}
 	for _, fd := range fields(f) {
 		k, _ := fd["key"].(string)
 		t, _ := fd["type"].(string)
 		label := fmt.Sprint(fd["label"])
 		v, present := data[k]
+		if pg, _ := fd["page"].(string); pg != "" && skipped[pg] {
+			continue
+		}
 		if cond, _ := fd["visibleIf"].(string); cond != "" {
 			if ok, err := evalVisible(cond, data); err == nil && !ok {
 				continue
@@ -77,6 +92,26 @@ func ValidateForm(f *store.Form, data map[string]any) error {
 		}
 		if !present || v == nil {
 			continue
+		}
+		msg := func(def string) string {
+			if m, _ := fd["message"].(string); m != "" {
+				return label + ": " + m
+			}
+			return label + ": " + def
+		}
+		if sv, ok := v.(string); ok && (t == "text" || t == "textarea") {
+			n := len([]rune(sv))
+			if mn, ok := fd["minLen"].(float64); ok && sv != "" && n < int(mn) {
+				errs = append(errs, msg(fmt.Sprintf("at least %d characters", int(mn))))
+			}
+			if mx, ok := fd["maxLen"].(float64); ok && n > int(mx) {
+				errs = append(errs, msg(fmt.Sprintf("at most %d characters", int(mx))))
+			}
+			if pat, _ := fd["pattern"].(string); pat != "" && sv != "" {
+				if re, err := regexp.Compile("^(?:" + pat + ")$"); err == nil && !re.MatchString(sv) {
+					errs = append(errs, msg("wrong format"))
+				}
+			}
 		}
 		switch t {
 		case "number", "money":

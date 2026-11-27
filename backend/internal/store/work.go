@@ -62,6 +62,23 @@ type Calendar struct {
 
 type Settings struct {
 	Calendar Calendar `json:"calendar"`
+	Theme    *Theme   `json:"theme,omitempty"`
+}
+
+// Theme is how the system looks for one organisation (tenant): name, logo,
+// colours, type, shape and density. Applied to every screen and the portal.
+type Theme struct {
+	Product  string `json:"product,omitempty"` // system name in the header, e.g. "ระบบติดตามเรื่อง"
+	Org      string `json:"org,omitempty"`     // organisation name
+	Logo     string `json:"logo,omitempty"`    // data: URL (png, jpeg or svg), small
+	Accent   string `json:"accent,omitempty"`  // #rrggbb buttons, links, selection
+	Header   string `json:"header,omitempty"`  // #rrggbb header bar
+	Font     string `json:"font,omitempty"`    // Google font family name
+	BaseSize int    `json:"baseSize,omitempty"`
+	Radius   int    `json:"radius,omitempty"`  // corner radius in px (0 = Carbon square)
+	Density  string `json:"density,omitempty"` // compact | normal | comfortable
+	Mode     string `json:"mode,omitempty"`    // light | dark | system
+	Footer   string `json:"footer,omitempty"`
 }
 
 type Notification struct {
@@ -89,6 +106,38 @@ type OutboxMsg struct {
 	LeaseUntil *time.Time `json:"leaseUntil,omitempty"`
 	LastError  string     `json:"lastError,omitempty"`
 	CreatedAt  time.Time  `json:"createdAt"`
+}
+
+// WorkView is a saved way of looking at the work list: columns, filters,
+// grouping, sorting and highlight rules. Personal, or shared with roles.
+type WorkView struct {
+	ID        string          `json:"id"`
+	Name      string          `json:"name"`
+	Owner     string          `json:"owner"`
+	Shared    bool            `json:"shared,omitempty"`
+	Roles     []string        `json:"roles,omitempty"` // shared with (empty = everyone)
+	Default   bool            `json:"default,omitempty"`
+	Scope     string          `json:"scope,omitempty"` // mine | queue | all (empty = all I can see)
+	Columns   []string        `json:"columns"`         // built-in column keys or data.<field>
+	Filters   []ViewRule      `json:"filters,omitempty"`
+	GroupBy   string          `json:"groupBy,omitempty"`
+	SortBy    string          `json:"sortBy,omitempty"`
+	SortDesc  bool            `json:"sortDesc,omitempty"`
+	Density   string          `json:"density,omitempty"` // normal | compact
+	Highlight []ViewHighlight `json:"highlight,omitempty"`
+	OpenIn    string          `json:"openIn,omitempty"` // page (default) | panel
+	UpdatedAt time.Time       `json:"updatedAt"`
+}
+
+type ViewRule struct {
+	Field string `json:"field"`
+	Op    string `json:"op"`
+	Value string `json:"value,omitempty"`
+}
+
+type ViewHighlight struct {
+	When  []ViewRule `json:"when"`
+	Color string     `json:"color"` // red | amber | blue | green
 }
 
 // Routing decides who gets a step's work item.
@@ -124,6 +173,10 @@ type WorkOps interface {
 	AddNotification(ctx context.Context, n *Notification) error
 	ListNotifications(ctx context.Context, user string, limit int) ([]*Notification, error)
 	MarkNotificationsRead(ctx context.Context, user string, ids []string) error
+
+	PutView(ctx context.Context, v *WorkView) error
+	ListViews(ctx context.Context) ([]*WorkView, error)
+	DeleteView(ctx context.Context, id string) error
 
 	PutOutbox(ctx context.Context, m *OutboxMsg) error
 	// LeaseOutbox claims due messages (or ones whose sender died) until now+lease.

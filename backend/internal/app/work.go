@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/smtp"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -625,4 +626,68 @@ func (s *Service) WorkableBy(ctx context.Context, by Actor, ws []*store.Work) []
 		}
 	}
 	return out
+}
+
+var hexColor = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
+
+// Theme returns the organisation's theme (empty = product default).
+func (s *Service) Theme(ctx context.Context) *store.Theme {
+	st, err := s.S.GetSettings(ctx)
+	if err != nil || st == nil || st.Theme == nil {
+		return &store.Theme{}
+	}
+	return st.Theme
+}
+
+// SaveTheme checks and stores the theme (admins only).
+func (s *Service) SaveTheme(ctx context.Context, by Actor, t *store.Theme) (*store.Theme, error) {
+	if !by.Has(RoleAdmin) {
+		return nil, ErrForbidden
+	}
+	for _, c := range []string{t.Accent, t.Header} {
+		if c != "" && !hexColor.MatchString(c) {
+			return nil, invalid("colours must look like #0f62fe")
+		}
+	}
+	if t.Logo != "" {
+		ok := false
+		for _, p := range []string{"data:image/png;base64,", "data:image/jpeg;base64,", "data:image/svg+xml;base64,", "data:image/webp;base64,"} {
+			ok = ok || strings.HasPrefix(t.Logo, p)
+		}
+		if !ok {
+			return nil, invalid("the logo must be a PNG, JPEG, WebP or SVG image")
+		}
+		if len(t.Logo) > 400_000 {
+			return nil, invalid("the logo is too large (keep it under 300 KB)")
+		}
+	}
+	if t.BaseSize != 0 && (t.BaseSize < 12 || t.BaseSize > 18) {
+		return nil, invalid("base text size must be between 12 and 18")
+	}
+	if t.Radius < 0 || t.Radius > 16 {
+		return nil, invalid("corner radius must be between 0 and 16")
+	}
+	switch t.Density {
+	case "", "compact", "normal", "comfortable":
+	default:
+		return nil, invalid("unknown density %q", t.Density)
+	}
+	switch t.Mode {
+	case "", "light", "dark", "system":
+	default:
+		return nil, invalid("unknown mode %q", t.Mode)
+	}
+	if len(t.Product) > 80 || len(t.Org) > 120 || len(t.Footer) > 300 || len(t.Font) > 60 {
+		return nil, invalid("text is too long")
+	}
+	st, err := s.S.GetSettings(ctx)
+	if err != nil || st == nil {
+		st = &store.Settings{}
+	}
+	st.Theme = t
+	if err := s.S.PutSettings(ctx, st); err != nil {
+		return nil, err
+	}
+	s.audit(ctx, by, "theme.save", "settings", "theme", map[string]any{"product": t.Product, "accent": t.Accent})
+	return t, nil
 }

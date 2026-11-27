@@ -8,6 +8,7 @@ import { setSession } from "@/lib/api";
 import Dropdown from "@/components/Dropdown";
 import { Field } from "@/components/ui";
 import { oidc, oidcEnabled, signIn } from "@/lib/oidc";
+import { useTheme } from "@/lib/theme";
 
 const personas = [
   { id: "admin", name: "Administrator", roles: ["cm:admin"] },
@@ -22,6 +23,7 @@ const personas = [
 ];
 
 export default function Login() {
+  const theme = useTheme();
   const r = useRouter();
   const [id, setId] = useState("");
   const [name, setName] = useState("");
@@ -29,7 +31,7 @@ export default function Login() {
   const all = Array.from(new Set(personas.flatMap((p) => p.roles)));
   return (
     <div className="login">
-      <h1>Case Management</h1>
+      <h1>{theme.logo && <img className="login-logo" src={theme.logo} alt="" />}{theme.product || "Case Management"}</h1>{theme.org && <div className="muted">{theme.org}</div>}
       {oidcEnabled() && (
         <div className="bar"><button className="btn" onClick={() => signIn("/")}>{t("Sign in with SSO")}</button></div>
       )}

@@ -24,7 +24,7 @@ export default function DropZone({ onFiles, accept, multiple, label }: {
       onDrop={(e) => { e.preventDefault(); setOver(false); take(e.dataTransfer.files); }}>
       <input ref={inp} type="file" hidden accept={accept} multiple={multiple} onChange={(e) => take(e.target.files)} />
       <div>{names.length ? names.join(", ") : label ?? t("Drag and drop a file here or click to upload")}</div>
-      {accept && <div className="muted small">{accept}</div>}
+      {accept && !accept.includes("/") && <div className="muted small">{accept}</div>}
     </div>
   );
 }

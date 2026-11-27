@@ -52,7 +52,7 @@ export default function TestRun() {
   const complete = async (w: Work) => {
     const f = w.formKey ? forms[w.formKey] : undefined;
     const d = data[w.id] ?? {};
-    const v = validate(f?.schema.fields ?? [], d);
+    const v = validate(f?.schema.fields ?? [], d, f?.schema.pages);
     setErrs({ ...errs, [w.id]: v });
     if (Object.keys(v).length) return;
     try { await api.post(`/api/work/${w.id}/complete`, d); setE(undefined); after(); } catch (x: any) { setE(x.message); }
@@ -84,7 +84,7 @@ export default function TestRun() {
                 <section key={w.id} className="card mt">
                   <h3>{w.name} <span className="small muted">· {w.role || "-"}</span></h3>
                   {w.formKey && forms[w.formKey]
-                    ? <FormRenderer fields={forms[w.formKey].schema.fields} data={data[w.id] ?? {}} onChange={(d) => setData({ ...data, [w.id]: d })} errors={errs[w.id]} />
+                    ? <FormRenderer fields={forms[w.formKey].schema.fields} pages={forms[w.formKey].schema.pages} data={data[w.id] ?? {}} onChange={(d) => setData({ ...data, [w.id]: d })} errors={errs[w.id]} />
                     : <Field label={t("Data (JSON)")}><textarea className="mono" rows={3} placeholder='{"approve_approved": true}' onChange={(x) => { try { setData({ ...data, [w.id]: JSON.parse(x.target.value || "{}") }); } catch {} }} /></Field>}
                   <div className="bar"><button className="btn" onClick={() => complete(w)}>{t("Complete step")}</button></div>
                 </section>

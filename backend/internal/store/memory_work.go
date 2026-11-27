@@ -12,6 +12,7 @@ type memWork struct {
 	settings *Settings
 	notes    []*Notification
 	outbox   map[string]*OutboxMsg
+	views    map[string]*WorkView
 }
 
 func (m *Memory) wk() *memWork {
@@ -181,5 +182,31 @@ func (m *Memory) DeleteOutbox(_ context.Context, id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.wk().outbox, id)
+	return nil
+}
+
+func (m *Memory) PutView(_ context.Context, v *WorkView) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.wk().views == nil {
+		m.wk().views = map[string]*WorkView{}
+	}
+	m.wk().views[v.ID] = cp(v)
+	return nil
+}
+func (m *Memory) ListViews(context.Context) ([]*WorkView, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []*WorkView
+	for _, v := range m.wk().views {
+		out = append(out, cp(v))
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out, nil
+}
+func (m *Memory) DeleteView(_ context.Context, id string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.wk().views, id)
 	return nil
 }

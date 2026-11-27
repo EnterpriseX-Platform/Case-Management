@@ -131,6 +131,14 @@ func (s *Server) Handler() http.Handler {
 		}
 		return map[string]any{"ok": true}, s.S.S.DeleteQueue(r.Context(), r.PathValue("key"))
 	})
+	h("GET /api/theme", func(w http.ResponseWriter, r *http.Request) (any, error) { return s.S.Theme(r.Context()), nil })
+	h("PUT /api/theme", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		var t store.Theme
+		if err := decode(r, &t); err != nil {
+			return nil, err
+		}
+		return s.S.SaveTheme(r.Context(), actor(r), &t)
+	})
 	h("GET /api/settings", func(w http.ResponseWriter, r *http.Request) (any, error) { return s.S.S.GetSettings(r.Context()) })
 	h("PUT /api/settings", func(w http.ResponseWriter, r *http.Request) (any, error) {
 		var st store.Settings
@@ -465,6 +473,35 @@ func (s *Server) Handler() http.Handler {
 	h("GET /api/work", func(w http.ResponseWriter, r *http.Request) (any, error) {
 		return s.S.Inbox(r.Context(), actor(r), r.URL.Query().Get("all") == "1")
 	})
+	// work list with selected case data fields, for saved views
+	h("GET /api/worklist", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		ws, err := s.S.Inbox(r.Context(), actor(r), r.URL.Query().Get("all") == "1")
+		if err != nil {
+			return nil, err
+		}
+		var fields []string
+		for _, f := range strings.Split(r.URL.Query().Get("fields"), ",") {
+			if f = strings.TrimSpace(f); f != "" {
+				fields = append(fields, f)
+			}
+		}
+		return s.S.WithCaseData(r.Context(), ws, fields), nil
+	})
+	h("GET /api/work/fields", func(w http.ResponseWriter, r *http.Request) (any, error) { return s.S.WorkFields(r.Context()) })
+	h("GET /api/views", func(w http.ResponseWriter, r *http.Request) (any, error) { return s.S.Views(r.Context(), actor(r)) })
+	h("PUT /api/views/{id}", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		var v store.WorkView
+		if err := decode(r, &v); err != nil {
+			return nil, err
+		}
+		if id := r.PathValue("id"); id != "new" {
+			v.ID = id
+		}
+		return s.S.SaveView(r.Context(), actor(r), &v)
+	})
+	h("DELETE /api/views/{id}", func(w http.ResponseWriter, r *http.Request) (any, error) {
+		return map[string]bool{"ok": true}, s.S.DeleteView(r.Context(), actor(r), r.PathValue("id"))
+	})
 	h("GET /api/work/{id}", func(w http.ResponseWriter, r *http.Request) (any, error) {
 		ctx := r.Context()
 		wk, err := s.S.S.GetWork(ctx, r.PathValue("id"))
@@ -675,7 +712,9 @@ func (s *Server) middleware(m *http.ServeMux, callback http.HandlerFunc) http.Ha
 			callback(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != "/api/openapi.yaml" {
+		// the theme is public so the sign-in page can show the organisation's look
+		public := r.URL.Path == "/api/openapi.yaml" || (r.URL.Path == "/api/theme" && r.Method == http.MethodGet)
+		if strings.HasPrefix(r.URL.Path, "/api/") && !public {
 			a, err := s.Auth(r)
 			if err != nil {
 				writeErr(w, err)

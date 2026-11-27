@@ -26,7 +26,7 @@ export default function InlineTask({ work, me, onDone }: { work: Work; me: strin
     return <section className="card task"><h3>{work.name}</h3><Link className="btn-o" href={`/work/${work.id}`}>{t("Open external screen")}</Link></section>;
   }
   const submit = async () => {
-    const v = validate(form?.schema.fields ?? [], d);
+    const v = validate(form?.schema.fields ?? [], d, form?.schema.pages);
     setErrs(v);
     if (Object.keys(v).length) return;
     setBusy(true);
@@ -44,7 +44,7 @@ export default function InlineTask({ work, me, onDone }: { work: Work; me: strin
         <h3>{work.name} <span className="small muted">· {t("your task")}</span></h3>
         {work.dueAt && <span className={"small" + (overdue(work.dueAt) ? " late-t" : " muted")}>{t("Due")} {dt(work.dueAt)}</span>}
       </div>
-      {form ? <FormRenderer fields={form.schema.fields} data={d} onChange={setD} errors={errs} /> : null}
+      {form ? <FormRenderer fields={form.schema.fields} pages={form.schema.pages} data={d} onChange={setD} errors={errs} /> : null}
       {e && <div className="err">{e}</div>}
       <div className="bar"><button className="btn" disabled={busy} onClick={submit}>{form ? t("Submit") : t("Mark as done")}</button></div>
     </section>

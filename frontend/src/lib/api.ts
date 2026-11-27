@@ -95,12 +95,22 @@ export type Binding = {
   route?: Routing; goal?: string; urgency?: number; escalate?: Escalation[];
 };
 export type Step = { nodeId: string; name: string; type: string; lane?: string; human: boolean; binding: Binding };
+export type CondRule = { field: string; op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte" | "empty" | "filled"; value?: string };
+/** A condition built without code: rules joined by AND (or OR when any). */
+export type Cond = { any?: boolean; rules: CondRule[] };
 export type Field = {
   key: string; label: string; type: string; required?: boolean; min?: number; max?: number;
   options?: { value: string; label: string }[]; visibleIf?: string; readOnly?: boolean; width?: number;
   columns?: Field[]; source?: string; help?: string;
+  widthSm?: number;            // width on phones (default full)
+  show?: Cond;                 // shown only when (compiled into visibleIf for the server)
+  lock?: Cond;                 // read-only when
+  minLen?: number; maxLen?: number; pattern?: string; message?: string;
+  default?: string;            // "today" for dates, or a literal
+  page?: string;               // page key (forms with pages)
 };
-export type Form = { id?: string; key: string; name: string; version?: number; schema: { fields: Field[] } };
+export type FormPage = { key: string; title: string; skip?: Cond; skipIf?: string };
+export type Form = { id?: string; key: string; name: string; version?: number; schema: { fields: Field[]; pages?: FormPage[] } };
 export type Widget = { width: number; widget: string; url?: string; text?: string };
 export type Screen = { id?: string; key: string; name: string; kind: string; roles?: string[]; layout: { rows: { cols: Widget[] }[] } };
 export type Token = { id: string; node: string; wait?: string; scope?: string };

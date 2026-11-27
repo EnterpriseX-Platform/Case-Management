@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, Incident, Notification, Work } from "@/lib/api";
 import { signOut } from "@/lib/oidc";
 import { has, useSession } from "@/lib/useSession";
+import { useTheme } from "@/lib/theme";
 import type { Session } from "@/lib/api";
 
 type Item = { href: string; label: string; count?: "work" | "incidents"; exact?: boolean };
@@ -43,7 +44,7 @@ export const WORKSPACES: WS[] = [
     key: "admin", name: "Admin", who: "Users, settings and data", home: "/admin/users", roles: ["cm:admin", "cm:supervisor"],
     match: (p) => /^\/admin(\/|$)/.test(p),
     items: [
-      { href: "/admin/users", label: "Users & queues" }, { href: "/admin/calendar", label: "Business calendar" },
+      { href: "/admin/users", label: "Users & queues" }, { href: "/admin/calendar", label: "Business calendar" }, { href: "/admin/theme", label: "Theme" },
       { href: "/admin", label: "Import", exact: true }, { href: "/admin/migration", label: "Version migration" }, { href: "/admin/audit", label: "Audit log" },
     ],
   },
@@ -75,6 +76,7 @@ function useCounts(ws: string) {
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const s = useSession();
+  const theme = useTheme();
   const path = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -95,7 +97,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   if (!s) return null;
   const mine = WORKSPACES.filter((w) => allowed(w, s));
   // inside an app the studio uses its own tabs and the full width
-  const inApp = /^\/studio\/[^/]+\/[^/]+/.test(path);
+  const inApp = /^\/studio\/[^/]+\/[^/]+/.test(path) || /^\/designer\/forms\/[^/]+/.test(path);
   const active = (i: Item) => (i.exact ? path === i.href : path === i.href || path.startsWith(i.href + "/"));
 
   return (
@@ -104,7 +106,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         <div className="sw-wrap" ref={menuRef}>
           <button className="switch" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)} disabled={mine.length < 2}>
             {mine.length > 1 && <span className="sw-grid" aria-hidden>{Array.from({ length: 9 }, (_, i) => <i key={i} />)}</span>}
-            Case Management <span className="sw-name">{t(ws.name)}</span>
+            {theme.logo && <img className="hdr-logo" src={theme.logo} alt="" />}
+            {theme.product || "Case Management"} <span className="sw-name">{t(ws.name)}</span>
           </button>
           {open && (
             <div className="sw-menu" role="menu">
